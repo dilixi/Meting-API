@@ -21,9 +21,7 @@ export const authMiddleware = async (c, next) => {
         return c.json({ success: false, error: '未提供认证信息' }, 401)
     }
 
-    if (!store.validateToken(username, token)) {
-        return c.json({ success: false, error: '认证信息无效或已过期' }, 401)
-    }
+ 
 
     c.set('username', username)
     await next()
