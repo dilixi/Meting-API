@@ -698,7 +698,12 @@ app.get('/debug/git', async (c) => {
     const { default: fs } =
         await import('fs')
 
-    return c.json({ 
+    return c.json({
+        root:
+            fs.readdirSync(
+                '.'
+            ),
+
         src:
             fs.readdirSync(
                 './src'
@@ -706,7 +711,6 @@ app.get('/debug/git', async (c) => {
     })
 
 })
-
     
 }
 
