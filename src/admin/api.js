@@ -72,26 +72,13 @@ export const adminRoutes = (app) => {
     //    return c.json({ success: true, data: cookies })
     //})
 app.get('/admin/cookies', authMiddleware, async (c) => {
-    const platform = c.req.query('platform')
-    const forceBlob = c.req.query('forceBlob') === '1'
-
-    // ===== 正常逻辑（内存）=====
-    if (!forceBlob) {
-        const cookies = store.getCookies(platform).map(formatCookieForDisplay)
-        return c.json({
-            success: true,
-            source: 'memory',
-            data: cookies
-        })
-    }
-
-    // ===== 强制从 Blob 读取 =====
     try {
         const { list } = await import('@vercel/blob')
 
-        const files = await list()
+        const listResult = await list()
 
-        const file = files.blobs.find(b =>
+        // 找 cookies.json
+        const file = listResult.blobs.find(b =>
             b.pathname === 'cookies.json' ||
             b.pathname.endsWith('cookies.json')
         )
@@ -99,22 +86,19 @@ app.get('/admin/cookies', authMiddleware, async (c) => {
         if (!file) {
             return c.json({
                 success: false,
-                error: 'cookies.json not found in blob',
-                blobs: files.blobs.map(b => b.pathname)
+                error: 'cookies.json not found'
             })
         }
 
         const res = await fetch(file.url)
-        const raw = await res.json()
+        const data = await res.json()
 
-        const cookies = Object.values(raw || [])
-            .map(formatCookieForDisplay)
+        // 👉 关键：你这个结构是 object / map
+        const cookies = Object.values(data || {})
 
         return c.json({
             success: true,
-            source: 'blob',
-            count: cookies.length,
-            data: cookies.slice(0, 50)
+            data: cookies
         })
 
     } catch (e) {
