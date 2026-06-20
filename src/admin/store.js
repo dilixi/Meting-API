@@ -119,36 +119,22 @@ class DataStore {
  
         if (this.initialized) return
      
-if (isServerRuntime && runtime === 'node') 
-{
-
-    
+//if (isServerRuntime && runtime === 'node') 
+{ 
     try {
-
-        // 仅本地开发才创建目录（Vercel 上无意义）
+ 
         if (process.env.NODE_ENV === 'development') {
             if (!fs.existsSync(DATA_DIR)) {
                 fs.mkdirSync(DATA_DIR, { recursive: true })
             }
-        }
-
-        await this.loadFromFile()
-        
-
-        
+        } 
+        await this.loadFromFile() 
     } catch (e) {
         console.log('DataStore init:', e.message)
     }
 }
         
-const cookiesData = await readBlobFile('cookies.json')
 
-if (cookiesData && typeof cookiesData === 'object') {
-    this.cookies = new Map(
-        Object.entries(cookiesData)
-    )
-}
-        
         if (this.users.size === 0) {
             this.users.set('admin', {
                 username: 'admin',
@@ -205,8 +191,13 @@ async loadFromFile()
 
     try {
         // ========== cookies ==========
-  
+const cookiesData = await readBlobFile('cookies.json')
 
+if (cookiesData && typeof cookiesData === 'object') {
+    this.cookies = new Map(
+        Object.entries(cookiesData)
+    )
+} 
             
         // ========== users ==========
         let data = await readBlob(USERS_FILE)
