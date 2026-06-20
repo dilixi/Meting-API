@@ -118,23 +118,11 @@ class DataStore {
     async init() {
  
         if (this.initialized) return
-        this.cookies = new Map([
-            ["test123", {
-                id: "mqm65vy1yh3178uawTEMP",
-                platform: "netease",
-                cookie: "MUSIC_A_T=1781804138383; MUSIC_R_T=1781891663030.",
-                note: "debug",
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                createdBy: "system",
-                isActive: true,
-                isValid: true,
-                validatedAt: Date.now(),
-                userInfo: null,
-                validationError: null
-            }]
-        ])
-if (isServerRuntime && runtime === 'node') {
+     
+if (isServerRuntime && runtime === 'node') 
+{
+
+    
     try {
 
         // 仅本地开发才创建目录（Vercel 上无意义）
@@ -150,6 +138,23 @@ if (isServerRuntime && runtime === 'node') {
         console.log('DataStore init:', e.message)
     }
 }
+        
+   this.cookies = new Map([
+            ["test123", {
+                id: "mqm65vy1yh3178uawTEMP",
+                platform: "netease",
+                cookie: "MUSIC_A_T=1781804138383; MUSIC_R_T=1781891663030.",
+                note: "debug",
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                createdBy: "system",
+                isActive: true,
+                isValid: true,
+                validatedAt: Date.now(),
+                userInfo: null,
+                validationError: null
+            }]
+        ])
         
         if (this.users.size === 0) {
             this.users.set('admin', {
