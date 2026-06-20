@@ -1,6 +1,7 @@
 import { get_runtime } from '../util.js'
 import { validateCookie as validateCookieOnline } from './cookie-validator.js'
 import { put, list } from '@vercel/blob'
+import { writeBlob, readBlob } from './storage.js'
 
 const runtime = get_runtime()
 
@@ -135,8 +136,6 @@ class DataStore {
         return hash.toString(16)
     }
 
-async loadFromFile() {
-    if (runtime !== 'node') return
 
     async function readJson(filepath) {
 
@@ -352,179 +351,31 @@ async loadFromFile() {
         )
 
     }
-}
-
 async saveToFile() {
-
-    if (runtime !== 'node')
-        return
-
-    async function writeJson(
-        filepath,
-        data
-    ) {
-
-        const filename =
-            path.basename(
-                filepath
-            )
-
-        const json =
-            JSON.stringify(
-                data,
-                null,
-                2
-            )
-
-        // ---------- 原逻辑 ----------
-        try {
-
-            fs.writeFileSync(
-                filepath,
-                json
-            )
-
-            console.log(
-                '[FILE SAVE]',
-                filename
-            )
-
-        }
-        catch (e) {
-
-            console.log(
-                '[FILE FAIL]',
-                filename,
-                e.message
-            )
-
-        }
-
-        // ---------- 新增 Blob ----------
-
-        try {
-
-            const result =
-                await put(
-                    filename,
-                    json,
-                    {
-                        access:
-                            'public',
-
-                        addRandomSuffix:
-                            false
-                    }
-                )
-
-            console.log(
-                '[BLOB SAVE]',
-                filename,
-                result.url
-            )
-
-        }
-        catch (e) {
-
-            console.log(
-                '[BLOB FAIL]',
-                filename,
-                e.message
-            )
-
-        }
-
-    }
+    if (runtime !== 'node') return
 
     try {
 
-        await writeJson(
-            path.join(
-                DATA_DIR,
-                COOKIES_FILE
-            ),
-            Object.fromEntries(
-                this.cookies
-            )
-        )
+        await writeBlob(COOKIES_FILE, Object.fromEntries(this.cookies))
+        await writeBlob(USERS_FILE, Object.fromEntries(this.users))
 
-        await writeJson(
-            path.join(
-                DATA_DIR,
-                USERS_FILE
-            ),
-            Object.fromEntries(
-                this.users
-            )
-        )
+        await writeBlob(LOGS_FILE, this.logs.slice(-1000))
 
-        await writeJson(
-            path.join(
-                DATA_DIR,
-                LOGS_FILE
-            ),
-            this.logs.slice(
-                -1000
-            )
-        )
+        await writeBlob(SECURITY_FILE, {
+            loginAttempts: Object.fromEntries(this.loginAttempts),
+            lockedAccounts: Object.fromEntries(this.lockedAccounts)
+        })
 
-        await writeJson(
-            path.join(
-                DATA_DIR,
-                SECURITY_FILE
-            ),
-            {
-                loginAttempts:
-                    Object.fromEntries(
-                        this.loginAttempts
-                    ),
+        await writeBlob(CONFIG_FILE, this.config)
 
-                lockedAccounts:
-                    Object.fromEntries(
-                        this.lockedAccounts
-                    )
-            }
-        )
+        await writeBlob(MONITOR_LOGS_FILE, this.monitorLogs.slice(-500))
 
-        await writeJson(
-            path.join(
-                DATA_DIR,
-                CONFIG_FILE
-            ),
-            this.config
-        )
+        await writeBlob(API_TOKENS_FILE, Object.fromEntries(this.apiTokens))
 
-        await writeJson(
-            path.join(
-                DATA_DIR,
-                MONITOR_LOGS_FILE
-            ),
-            this.monitorLogs.slice(
-                -500
-            )
-        )
-
-        await writeJson(
-            path.join(
-                DATA_DIR,
-                API_TOKENS_FILE
-            ),
-            Object.fromEntries(
-                this.apiTokens
-            )
-        )
-
-    }
-    catch (e) {
-
-        console.error(
-            'Save data error:',
-            e.message
-        )
-
+    } catch (e) {
+        console.error('Save data error:', e.message)
     }
 }
-
     generateId() {
         return Date.now().toString(36) + Math.random().toString(36).substr(2, 9)
     }
