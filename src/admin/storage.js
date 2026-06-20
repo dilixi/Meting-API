@@ -164,7 +164,7 @@ export async function writeJson(
                 json,
                 {
                     access:
-                        'private',
+                        'public',
                     addRandomSuffix:
                         false
                 }
