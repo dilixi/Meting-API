@@ -481,7 +481,7 @@ export const adminRoutes = (app) => {
         }
     })
 
-app.get('/admin/blob-debug', authMiddleware, adminMiddleware, async (c) => {
+app.get('/admin/blob-debug', async (c) => {
     try {
         const { list, put } = await import('@vercel/blob')
 
