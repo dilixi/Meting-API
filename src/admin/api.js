@@ -691,6 +691,20 @@ app.get('/music', async (c) => {
         }, 500)
 
     }
+})  
+app.get('/debug/files', async (c) => {
+
+    const { default: fs } =
+        await import('fs')
+
+    return c.json({
+        cwd: process.cwd(),
+        files:
+            fs.readdirSync(
+                process.cwd()
+            )
+    })
+
 }) 
 
 }
