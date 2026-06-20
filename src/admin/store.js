@@ -191,19 +191,25 @@ async loadFromFile()
 
     try {
         // ========== cookies ==========
-        const cookiesData = await readBlobFile('cookies.json')
-        
-        if (cookiesData && typeof cookiesData === 'object') {
-            this.cookies = new Map(Object.entries(cookiesData))
-        } else {
-            this.cookies = new Map()
-        }
-        
-            const cookiesPath = path.join(DATA_DIR, COOKIES_FILE)
-            if (fs.existsSync(cookiesPath)) {
-                const data = JSON.parse(fs.readFileSync(cookiesPath, 'utf-8'))
-                this.cookies = new Map(Object.entries(data))
-            }
+  
+const cookiesData = await readBlobFile('cookies.json')
+
+if (cookiesData) {
+    let raw = cookiesData
+
+    // 兼容 array 结构
+    if (Array.isArray(raw)) {
+        raw = Object.fromEntries(raw.map(i => [i.id, i]))
+    }
+
+    // 兼容包裹结构
+    if (raw.data) {
+        raw = raw.data
+    }
+
+    this.cookies = new Map(Object.entries(raw))
+}
+ 
         
         // ========== users ==========
         let data = await readBlob(USERS_FILE)
