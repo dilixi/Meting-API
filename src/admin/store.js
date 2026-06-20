@@ -408,7 +408,7 @@ async saveToFile() {
         await this.addLog('cookie_add', `添加${platform} Cookie: ${note || id}`, username)
         
         await this.syncCookiesToBlob()
-        //await this.saveToFile()
+        await this.saveToFile()
         
         return { success: true, data: cookie }
     }
@@ -480,7 +480,7 @@ async saveToFile() {
         
         this.cookies.set(id, updatedCookie)
         await this.addLog('cookie_update', `更新${cookie.platform} Cookie: ${cookie.note || id}`, username)
-        //await this.saveToFile()
+        await this.saveToFile()
         await this.syncCookiesToBlob()
         
         return { success: true, data: updatedCookie }
