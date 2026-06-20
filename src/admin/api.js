@@ -452,7 +452,7 @@ export const adminRoutes = (app) => {
                         hello: 'world'
                     }),
                     {
-                        access: 'public'
+                        access: 'private'
                     }
                 )
     
