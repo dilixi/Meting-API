@@ -106,6 +106,60 @@ class DataStore {
                     fs.mkdirSync(DATA_DIR, { recursive: true })
                 }
                 await this.loadFromFile()
+                
+                try {
+                
+                    const { put } =
+                        await import(
+                            '@vercel/blob'
+                        )
+                
+                    console.log(
+                        '[BLOB]',
+                        'BEGIN TEST'
+                    )
+                
+                    const result =
+                        await put(
+                
+                            'blob-test.txt',
+                
+                            JSON.stringify({
+                
+                                ts:
+                                    Date.now(),
+                
+                                test:
+                                    'hello'
+                
+                            }),
+                
+                            {
+                
+                                access:
+                                    'private',
+                
+                                addRandomSuffix:
+                                    false
+                
+                            }
+                
+                        )
+                
+                    console.log(
+                        '[BLOB]',
+                        result.url
+                    )
+                
+                }
+                catch(e)
+                {
+                    console.log(
+                        '[BLOB]',
+                        e.message
+                    )
+                }
+                
             } catch (e) {
                 console.log('DataStore init:', e.message)
             }
