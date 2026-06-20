@@ -452,7 +452,7 @@ export const adminRoutes = (app) => {
                         hello: 'world'
                     }),
                     {
-                        access: 'private'
+                        access: 'public'
                     }
                 )
     
@@ -501,7 +501,7 @@ app.get('/admin/blob-debug', async (c) => {
                     time: Date.now()
                 }),
                 {
-                    access: 'private'
+                    access: 'public'
                 }
             )
 
