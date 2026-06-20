@@ -1,186 +1,65 @@
-import fs from 'fs'
-import path from 'path'
+import { list, put, get } from '@vercel/blob'
 
-let blob = null
+/**
+ * 写入 JSON 到 Blob
+ */
+export async function writeBlob(filename, data) {
 
-async function getBlob()
-{
-    if (blob)
-        return blob
+    const json = JSON.stringify(data, null, 2)
 
-    try
-    {
-        blob =
-            await import(
-                '@vercel/blob'
-            )
+    try {
 
-        console.log(
-            '[STORAGE]',
-            'Blob Enabled'
-        )
-    }
-    catch(e)
-    {
-        console.log(
-            '[STORAGE]',
-            'Blob Disabled'
-        )
-    }
-
-    return blob
-}
-
-export async function readJson(
-    filepath
-)
-{
-    const filename =
-        path.basename(
-            filepath
-        )
-
-    try
-    {
-        const b =
-            await getBlob()
-
-        if (b)
-        {
-            const result =
-                await b.list()
-
-            const file =
-                result.blobs.find(
-                    x=>
-                    x.pathname===
-                    filename
-                )
-
-            if(file)
+        const result = await put(
+            filename,
+            json,
             {
-                console.log(
-                    '[BLOB READ]',
-                    filename
-                )
-
-                const r =
-                    await fetch(
-                        file.url
-                    )
-
-                return JSON.parse(
-                    await r.text()
-                )
+                access: 'public',
+                addRandomSuffix: false
             }
-        }
-    }
-    catch(e)
-    {
-        console.log(
-            '[BLOB READ FAIL]',
-            e.message
         )
-    }
 
-    try
-    {
-        if(
-            fs.existsSync(
-                filepath
-            )
-        )
-        {
-            console.log(
-                '[FILE READ]',
-                filename
-            )
+        console.log('[BLOB WRITE]', filename)
 
-            return JSON.parse(
-                fs.readFileSync(
-                    filepath,
-                    'utf8'
-                )
-            )
-        }
-    }
-    catch(e)
-    {
-        console.log(
-            '[FILE READ FAIL]',
-            e.message
-        )
-    }
+        return result.url
 
-    return null
+    } catch (e) {
+
+        console.log('[BLOB WRITE FAIL]', e.message)
+        return null
+    }
 }
 
-export async function writeJson(
-    filepath,
-    data
-)
-{
-    const filename =
-        path.basename(
-            filepath
+/**
+ * 读取 Blob（按 key）
+ */
+export async function readBlob(filename) {
+
+    try {
+
+        const files = await list()
+
+        const file = files.blobs.find(
+            b => b.pathname === filename
         )
 
-    const json =
-        JSON.stringify(
-            data,
-            null,
-            2
-        )
+        if (!file) return null
 
-    try
-    {
-        fs.writeFileSync(
-            filepath,
-            json
-        )
+        const res = await fetch(file.url)
 
-        console.log(
-            '[FILE WRITE]',
-            filename
-        )
+        return await res.json()
+
+    } catch (e) {
+
+        console.log('[BLOB READ FAIL]', e.message)
+        return null
     }
-    catch(e)
-    {
-        console.log(
-            '[FILE WRITE FAIL]',
-            e.message
-        )
-    }
+}
 
-    try
-    {
-        const b =
-            await getBlob()
+/**
+ * 列出所有 blobs
+ */
+export async function listBlob() {
 
-        if (b)
-        {
-            await b.put(
-                filename,
-                json,
-                {
-                    access:
-                        'public',
-                    addRandomSuffix:
-                        false
-                }
-            )
-
-            console.log(
-                '[BLOB WRITE]',
-                filename
-            )
-        }
-    }
-    catch(e)
-    {
-        console.log(
-            '[BLOB WRITE FAIL]',
-            e.message
-        )
-    }
+    const res = await list()
+    return res.blobs
 }
