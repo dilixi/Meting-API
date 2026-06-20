@@ -692,30 +692,22 @@ app.get('/music', async (c) => {
 
     }
 })   
-app.get('/debug/music', async (c) => {
+ 
+app.get('/debug/git', async (c) => {
 
     const { default: fs } =
         await import('fs')
 
-    try {
+    return c.json({ 
+        src:
+            fs.readdirSync(
+                './src/music'
+            )
+    })
 
-        return c.json({
-            files:
-                fs.readdirSync(
-                    './src/music'
-                )
-        })
+})
 
-    } catch (e) {
-
-        return c.json({
-            error:e.message
-        })
-
-    }
-
-}) 
-
+    
 }
 
 export default adminRoutes
