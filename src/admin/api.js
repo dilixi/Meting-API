@@ -701,7 +701,7 @@ app.get('/debug/git', async (c) => {
     return c.json({ 
         src:
             fs.readdirSync(
-                './src'
+                './src/music'
             )
     })
 
