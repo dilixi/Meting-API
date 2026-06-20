@@ -654,7 +654,7 @@ app.get('/music', async (c) => {
         const path =
             await import('path')
 
-       const filePath = path.resolve('assets/music'+name )
+       const filePath = path.resolve('src/music'+name )
 
         if (!fs.existsSync(filePath)) {
             return c.json({
@@ -691,8 +691,7 @@ app.get('/music', async (c) => {
         }, 500)
 
     }
-})  
-```js
+})   
 app.get('/debug/music', async (c) => {
 
     const { default: fs } =
@@ -715,9 +714,7 @@ app.get('/debug/music', async (c) => {
 
     }
 
-})
-```
-
+}) 
 
 }
 
