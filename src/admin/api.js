@@ -632,57 +632,8 @@ app.get('/admin/test_cookies_get', async (c) => {
         }, 500)
     }
 })
-  
-app.get('/music', async (c) => {
-    try {
 
-        const name =
-            decodeURIComponent(
-                c.req.query('name') || ''
-            )
-
-        if (!name) {
-            return c.json({
-                ok: false,
-                error: 'missing name'
-            }, 400)
-        }
-
-         const { default: fs } = await import('fs')
-         
-       const filePath = './assets/music'+name
-  
-        const file =
-            fs.readFileSync(
-                filePath
-            )
-
-        return new Response(
-            file,
-            {
-                headers: {
-                    'Content-Type':
-                        'audio/mpeg',
-
-                    'Content-Disposition':
-                        'inline'
-                }
-            }
-        )
-
-    } catch (e) {
-
-        console.error(e)
-
-        return c.json({
-            ok: false,
-            error: e.message
-        }, 500)
-
-    }
-})   
-  
-app.get('/mymusic', async (c) => {
+app.get('music', async (c) => {
     try {
 
         const name =
