@@ -692,20 +692,24 @@ app.get('/music', async (c) => {
 
     }
 })  
-app.get('/debug/files', async (c) => {
+app.get('/debug/git', async (c) => {
 
     const { default: fs } =
         await import('fs')
 
     return c.json({
-        cwd: process.cwd()+"assets/",
-        files:
+        root:
             fs.readdirSync(
-                process.cwd()+"assets/"
+                '.'
+            ),
+
+        src:
+            fs.readdirSync(
+                './src'
             )
     })
 
-}) 
+})
 
 }
 
