@@ -134,29 +134,20 @@ if (isServerRuntime && runtime === 'node')
 
         await this.loadFromFile()
         
-   this.cookies = new Map([
-            ["test123", {
-                id: "mqm65vy1yh3178uawTEMP",
-                platform: "netease",
-                cookie: "MUSIC_A_T=1781804138383; MUSIC_R_T=1781891663030.",
-                note: "debug",
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                createdBy: "system",
-                isActive: true,
-                isValid: true,
-                validatedAt: Date.now(),
-                userInfo: null,
-                validationError: null
-            }]
-        ])
+
         
     } catch (e) {
         console.log('DataStore init:', e.message)
     }
 }
         
+const cookiesData = await readBlobFile('cookies.json')
 
+if (cookiesData && typeof cookiesData === 'object') {
+    this.cookies = new Map(
+        Object.entries(cookiesData)
+    )
+}
         
         if (this.users.size === 0) {
             this.users.set('admin', {
