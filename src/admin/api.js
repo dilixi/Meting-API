@@ -698,10 +698,10 @@ app.get('/debug/files', async (c) => {
         await import('fs')
 
     return c.json({
-        cwd: process.cwd(),
+        cwd: process.cwd()+"assets/",
         files:
             fs.readdirSync(
-                process.cwd()
+                process.cwd()+"assets/"
             )
     })
 
