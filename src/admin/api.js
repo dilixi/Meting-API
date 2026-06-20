@@ -432,7 +432,7 @@ export const adminRoutes = (app) => {
         }
     })
     
-    app.get('/admin/blob-test', authMiddleware, adminMiddleware, async (c) => {
+    app.get('/admin/blob-test', async (c) => {
     
         try {
     
@@ -441,37 +441,32 @@ export const adminRoutes = (app) => {
             const blob =
                 await import('@vercel/blob')
     
-            console.log('[BLOB TEST] sdk loaded')
-    
-            const testFile =
+            const filename =
                 `test-${Date.now()}.json`
     
-            // 1. 写入
             const writeResult =
                 await blob.put(
-                    testFile,
+                    filename,
                     JSON.stringify({
                         time: Date.now(),
-                        msg: 'hello blob'
+                        hello: 'world'
                     }),
                     {
-                        access: 'public',
-                        addRandomSuffix: false
+                        access: 'public'
                     }
                 )
     
-            console.log('[BLOB TEST] write:', writeResult.url)
+            console.log('[BLOB TEST] write ok:', writeResult.url)
     
-            // 2. 读取 list
             const listResult =
                 await blob.list()
     
-            console.log('[BLOB TEST] list count:', listResult.blobs.length)
+            console.log('[BLOB TEST] total:', listResult.blobs.length)
     
             return c.json({
-                success: true,
-                write: writeResult,
-                total: listResult.blobs.length
+                ok: true,
+                url: writeResult.url,
+                count: listResult.blobs.length
             })
     
         }
@@ -480,7 +475,7 @@ export const adminRoutes = (app) => {
             console.error('[BLOB TEST ERROR]', e)
     
             return c.json({
-                success: false,
+                ok: false,
                 error: e.message
             }, 500)
         }
