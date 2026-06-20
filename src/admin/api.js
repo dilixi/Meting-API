@@ -66,68 +66,69 @@ export const adminRoutes = (app) => {
         })
     })
 
-    // app.get('/admin/cookies', authMiddleware, async (c) => {
-    //    const platform = c.req.query('platform')
-    //    const cookies = store.getCookies(platform).map(formatCookieForDisplay)
-    //    return c.json({ success: true, data: cookies })
-    // })
-app.get('/admin/cookies', authMiddleware, async (c) => {
-    try {
-        const { list } = await import('@vercel/blob')
+    app.get('/admin/cookies', authMiddleware, async (c) => {
+       const platform = c.req.query('platform')
+       const cookies = store.getCookies(platform).map(formatCookieForDisplay)
+       return c.json({ success: true, data: cookies })
+    })
+    
+// app.get('/admin/cookies', authMiddleware, async (c) => {
+//     try {
+//         const { list } = await import('@vercel/blob')
 
-        const listResult = await list()
+//         const listResult = await list()
 
-        const file = listResult.blobs.find(b =>
-            b.pathname === 'cookies.json' ||
-            b.pathname.endsWith('cookies.json')
-        )
+//         const file = listResult.blobs.find(b =>
+//             b.pathname === 'cookies.json' ||
+//             b.pathname.endsWith('cookies.json')
+//         )
 
-        if (!file) {
-            return c.json({
-                success: false,
-                error: 'cookies.json not found'
-            })
-        }
+//         if (!file) {
+//             return c.json({
+//                 success: false,
+//                 error: 'cookies.json not found'
+//             })
+//         }
 
-        const platform = c.req.query('platform')
+//         const platform = c.req.query('platform')
 
-        const res = await fetch(file.url)
-        const data = await res.json()
+//         const res = await fetch(file.url)
+//         const data = await res.json()
 
-        const cookies = Object.values(data || {})
-            .filter(item => {
-                if (!platform) return true
-                return item?.platform === platform
-            })
-            .map(item => ({
-                id: item.id,
-                platform: item.platform,
-                cookiePreview: item.cookie
-                    ? item.cookie.slice(0, 80) + '...'
-                    : '',
-                note: item.note,
-                createdAt: item.createdAt,
-                updatedAt: item.updatedAt,
-                createdBy: item.createdBy,
-                isActive: item.isActive,
-                isValid: item.isValid,
-                validatedAt: item.validatedAt,
-                userInfo: item.userInfo,
-                validationError: item.validationError
-            }))
+//         const cookies = Object.values(data || {})
+//             .filter(item => {
+//                 if (!platform) return true
+//                 return item?.platform === platform
+//             })
+//             .map(item => ({
+//                 id: item.id,
+//                 platform: item.platform,
+//                 cookiePreview: item.cookie
+//                     ? item.cookie.slice(0, 80) + '...'
+//                     : '',
+//                 note: item.note,
+//                 createdAt: item.createdAt,
+//                 updatedAt: item.updatedAt,
+//                 createdBy: item.createdBy,
+//                 isActive: item.isActive,
+//                 isValid: item.isValid,
+//                 validatedAt: item.validatedAt,
+//                 userInfo: item.userInfo,
+//                 validationError: item.validationError
+//             }))
 
-        return c.json({
-            success: true,
-            data: cookies
-        })
+//         return c.json({
+//             success: true,
+//             data: cookies
+//         })
 
-    } catch (e) {
-        return c.json({
-            success: false,
-            error: e.message
-        }, 500)
-    }
-})
+//     } catch (e) {
+//         return c.json({
+//             success: false,
+//             error: e.message
+//         }, 500)
+//     }
+// })
     app.get('/admin/cookies/:id', authMiddleware, async (c) => {
         const id = c.req.param('id')
         const cookie = store.getCookie(id)
