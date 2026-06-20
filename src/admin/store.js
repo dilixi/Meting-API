@@ -165,28 +165,40 @@ async loadFromFile()
     {
     const { list } = await import('@vercel/blob')
         
-async function readBlobFile(filename) {
-    try {
-        const files = await list()
-        const file = files.blobs.find(b => b.pathname === filename)
-        if (!file) return null
-
-        const res = await fetch(file.url)
-        return await res.json()
-    } catch {
-        return null
+    async function readBlobFile(filename) {
+        try {
+            const { list } = await import('@vercel/blob')
+            const files = await list()
+    
+            // 更宽松匹配（非常关键）
+            const file = files.blobs.find(b =>
+                b.pathname === filename ||
+                b.pathname.endsWith(filename)
+            )
+    
+            if (!file) return null
+    
+            const res = await fetch(file.url)
+            return await res.json()
+    
+        } catch (e) {
+            console.log('[READ FAIL]', e.message)
+            return null
+        }
     }
-}
         
     if (runtime !== 'node') return
 
     try {
         // ========== cookies ==========
         const cookiesData = await readBlobFile('cookies.json')
-        if (cookiesData) {
-             this.cookies = new Map(Object.entries(cookiesData))
-         }
-
+        
+        if (cookiesData && typeof cookiesData === 'object') {
+            this.cookies = new Map(Object.entries(cookiesData))
+        } else {
+            this.cookies = new Map()
+        }
+        
         // ========== users ==========
         let data = await readBlob(USERS_FILE)
 
