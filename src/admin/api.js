@@ -480,6 +480,60 @@ export const adminRoutes = (app) => {
             }, 500)
         }
     })
+
+app.get('/admin/blob-debug', async (c) => {
+
+    try {
+
+        const token =
+            process.env.BLOB_READ_WRITE_TOKEN
+
+        const blob =
+            await import('@vercel/blob')
+
+        const filename =
+            `debug-${Date.now()}.json`
+
+        const write =
+            await blob.put(
+                filename,
+                JSON.stringify({
+                    time: Date.now()
+                }),
+                {
+                    access: 'private'
+                }
+            )
+
+        const list =
+            await blob.list()
+
+        return c.json({
+            ok: true,
+
+            debug: {
+                hasToken: !!token,
+                tokenPrefix: token
+                    ? token.slice(0, 12)
+                    : null,
+                runtime: typeof token,
+            },
+
+            write: {
+                url: write.url
+            },
+
+            blobCount: list.blobs.length
+        })
+
+    } catch (e) {
+
+        return c.json({
+            ok: false,
+            error: e.message
+        })
+    }
+})
 }
 
 export default adminRoutes
