@@ -655,8 +655,7 @@ app.get('/music', async (c) => {
             await import('path')
 
         const filePath =
-            path.join(
-                process.cwd(),
+            path.join( 
                 'assets',
                 'music',
                 name
