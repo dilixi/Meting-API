@@ -133,11 +133,6 @@ if (isServerRuntime && runtime === 'node')
         }
 
         await this.loadFromFile()
-
-    } catch (e) {
-        console.log('DataStore init:', e.message)
-    }
-}
         
    this.cookies = new Map([
             ["test123", {
@@ -155,6 +150,13 @@ if (isServerRuntime && runtime === 'node')
                 validationError: null
             }]
         ])
+        
+    } catch (e) {
+        console.log('DataStore init:', e.message)
+    }
+}
+        
+
         
         if (this.users.size === 0) {
             this.users.set('admin', {
