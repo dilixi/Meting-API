@@ -410,7 +410,7 @@ async saveToFile() {
                     json,
                     {
                         access:
-                            'private',
+                            'public',
 
                         addRandomSuffix:
                             false
