@@ -187,17 +187,34 @@ async loadFromFile()
         }
     }
         
-   // if (runtime !== 'node') return
+this.cookies = new Map([
+    ["test123", {
+        id: "test123"+runtime,
+        platform: "netease",
+        cookie: "MUSIC_U=abc; MUSIC_A=xyz"+runtime,
+        note: "debug",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        createdBy: "system",
+        isActive: true,
+        isValid: true,
+        validatedAt: Date.now(),
+        userInfo: null,
+        validationError: null
+    }]
+])
+        
+    if (runtime !== 'node') return
 
-    try {
-        // ========== cookies ==========
-const cookiesData = await readBlobFile('cookies.json')
+//     try {
+//         // ========== cookies ==========
+// const cookiesData = await readBlobFile('cookies.json')
 
-if (cookiesData && typeof cookiesData === 'object') {
-    this.cookies = new Map(
-        Object.entries(cookiesData)
-    )
-} 
+// if (cookiesData && typeof cookiesData === 'object') {
+//     this.cookies = new Map(
+//         Object.entries(cookiesData)
+//     )
+// } 
             
         // ========== users ==========
         let data = await readBlob(USERS_FILE)
