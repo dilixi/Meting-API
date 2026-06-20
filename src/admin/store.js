@@ -115,37 +115,29 @@ class DataStore {
         }
     }
     
-    async init() {
- 
+    async init() 
+    {
         if (this.initialized) return
-     
-//if (isServerRuntime && runtime === 'node') 
-{ 
-    try {
- 
-        if (process.env.NODE_ENV === 'development') {
-            if (!fs.existsSync(DATA_DIR)) {
-                fs.mkdirSync(DATA_DIR, { recursive: true })
+        
+        try {
+            // Vercel / Node / Edge 都统一走这里
+            await this.loadFromBlob()
+    
+            if (this.users.size === 0) {
+                this.users.set('admin', {
+                    username: 'admin',
+                    password: this.hashPassword('admin123'),
+                    role: 'admin',
+                    createdAt: Date.now()
+                })
+                await this.saveToFile()
             }
-        } 
-        await this.loadFromFile() 
-    } catch (e) {
-        console.log('DataStore init:', e.message)
-    }
-}
-        
-
-        if (this.users.size === 0) {
-            this.users.set('admin', {
-                username: 'admin',
-                password: this.hashPassword('admin123'),
-                role: 'admin',
-                createdAt: Date.now()
-            })
-            await this.saveToFile()
+    
+            this.initialized = true
+    
+        } catch (e) {
+            console.log('DataStore init:', e.message)
         }
-        
-        this.initialized = true
     }
 
     hashPassword(password) {
@@ -158,162 +150,128 @@ class DataStore {
         return hash.toString(16)
     }
     
-
-
-    
-async loadFromFile() 
-    {
-    const { list } = await import('@vercel/blob')
-        
-    async function readBlobFile(filename) {
-        try {
-            const { list } = await import('@vercel/blob')
-            const files = await list()
-    
-            // 更宽松匹配（非常关键）
-            const file = files.blobs.find(b =>
-                b.pathname === filename ||
-                b.pathname.endsWith(filename)
-            )
-    
-            if (!file) return null
-    
-            const res = await fetch(file.url)
-            return await res.json()
-    
-        } catch (e) {
-            console.log('[READ FAIL]', e.message)
-            return null
-        }
-    }
-        
-this.cookies = new Map([
-    ["test123", {
-        id: "test123"+runtime,
-        platform: "netease",
-        cookie: "MUSIC_U=abc; MUSIC_A=xyz"+runtime,
-        note: "debug",
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        createdBy: "system",
-        isActive: true,
-        isValid: true,
-        validatedAt: Date.now(),
-        userInfo: null,
-        validationError: null
-    }]
-])
-        
-    if (runtime !== 'node') return
-
+async loadFromFile() {
     try {
-        // ========== cookies ==========
-// const cookiesData = await readBlobFile('cookies.json')
+        const { list } = await import('@vercel/blob')
 
-// if (cookiesData && typeof cookiesData === 'object') {
-//     this.cookies = new Map(
-//         Object.entries(cookiesData)
-//     )
-// } 
-            
-        // ========== users ==========
-        let data = await readBlob(USERS_FILE)
+        async function readBlobFile(filename) {
+            try {
+                const files = await list()
 
-        if (!data && fs.existsSync(path.join(DATA_DIR, USERS_FILE))) {
-            data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, USERS_FILE), 'utf-8'))
+                const file = files.blobs.find(b =>
+                    b.pathname === filename ||
+                    b.pathname.endsWith(filename)
+                )
+
+                if (!file) return null
+
+                const res = await fetch(file.url)
+                return await res.json()
+
+            } catch (e) {
+                console.log('[READ BLOB FAIL]', filename, e.message)
+                return null
+            }
         }
 
-        if (data) {
-            this.users = new Map(Object.entries(data))
+        // ========== cookies ==========
+        const cookiesData = await readBlobFile('cookies.json')
+        if (cookiesData && typeof cookiesData === 'object') {
+            this.cookies = new Map(Object.entries(cookiesData))
+        } else {
+            this.cookies = new Map()
+        }
+
+        // ========== users ==========
+        const usersData = await readBlobFile('users.json')
+        if (usersData && typeof usersData === 'object') {
+            this.users = new Map(Object.entries(usersData))
+        } else {
+            this.users = new Map()
         }
 
         // ========== logs ==========
-        data = await readBlob(LOGS_FILE)
-
-        if (!data && fs.existsSync(path.join(DATA_DIR, LOGS_FILE))) {
-            data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, LOGS_FILE), 'utf-8'))
-        }
-
-        if (data) {
-            this.logs = data
-        }
+        const logsData = await readBlobFile('logs.json')
+        this.logs = Array.isArray(logsData) ? logsData : []
 
         // ========== security ==========
-        data = await readBlob(SECURITY_FILE)
-
-        if (!data && fs.existsSync(path.join(DATA_DIR, SECURITY_FILE))) {
-            data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, SECURITY_FILE), 'utf-8'))
-        }
-
-        if (data) {
-            this.loginAttempts = new Map(Object.entries(data.loginAttempts || {}))
-            this.lockedAccounts = new Map(Object.entries(data.lockedAccounts || {}))
+        const securityData = await readBlobFile('security.json')
+        if (securityData) {
+            this.loginAttempts = new Map(
+                Object.entries(securityData.loginAttempts || {})
+            )
+            this.lockedAccounts = new Map(
+                Object.entries(securityData.lockedAccounts || {})
+            )
         }
 
         // ========== config ==========
-        data = await readBlob(CONFIG_FILE)
-
-        if (!data && fs.existsSync(path.join(DATA_DIR, CONFIG_FILE))) {
-            data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, CONFIG_FILE), 'utf-8'))
-        }
-
-        if (data) {
-            this.config = data
-        }
+        const configData = await readBlobFile('config.json')
+        this.config = configData || {}
 
         // ========== monitor ==========
-        data = await readBlob(MONITOR_LOGS_FILE)
-
-        if (!data && fs.existsSync(path.join(DATA_DIR, MONITOR_LOGS_FILE))) {
-            data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, MONITOR_LOGS_FILE), 'utf-8'))
-        }
-
-        if (data) {
-            this.monitorLogs = data
-        }
+        const monitorData = await readBlobFile('monitor_logs.json')
+        this.monitorLogs = Array.isArray(monitorData) ? monitorData : []
 
         // ========== tokens ==========
-        data = await readBlob(API_TOKENS_FILE)
-
-        if (!data && fs.existsSync(path.join(DATA_DIR, API_TOKENS_FILE))) {
-            data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, API_TOKENS_FILE), 'utf-8'))
+        const tokenData = await readBlobFile('api_tokens.json')
+        if (tokenData) {
+            this.apiTokens = new Map(Object.entries(tokenData))
+        } else {
+            this.apiTokens = new Map()
         }
 
-        if (data) {
-            this.apiTokens = new Map(Object.entries(data))
-        }
+        console.log('[BLOB LOAD] done')
 
     } catch (e) {
         console.error('Load data error:', e.message)
     }
 }
-
 async saveToFile() {
-    if (runtime !== 'node') return
-
     try {
+        const writes = []
 
-        await writeBlob(COOKIES_FILE, Object.fromEntries(this.cookies))
-        await writeBlob(USERS_FILE, Object.fromEntries(this.users))
+        const { put } = await import('@vercel/blob')
 
-        await writeBlob(LOGS_FILE, this.logs.slice(-1000))
+        const save = (name, data) =>
+            writes.push(
+                put(name, JSON.stringify(data, null, 2), {
+                    access: 'public',
+                    addRandomSuffix: false
+                })
+            )
 
-        await writeBlob(SECURITY_FILE, {
+        // ========== cookies ==========
+        save('cookies.json', Object.fromEntries(this.cookies))
+
+        // ========== users ==========
+        save('users.json', Object.fromEntries(this.users))
+
+        // ========== logs ==========
+        save('logs.json', this.logs.slice(-1000))
+
+        // ========== security ==========
+        save('security.json', {
             loginAttempts: Object.fromEntries(this.loginAttempts),
             lockedAccounts: Object.fromEntries(this.lockedAccounts)
         })
 
-        await writeBlob(CONFIG_FILE, this.config)
+        // ========== config ==========
+        save('config.json', this.config)
 
-        await writeBlob(MONITOR_LOGS_FILE, this.monitorLogs.slice(-500))
+        // ========== monitor ==========
+        save('monitor_logs.json', this.monitorLogs.slice(-500))
 
-        await writeBlob(API_TOKENS_FILE, Object.fromEntries(this.apiTokens))
+        // ========== tokens ==========
+        save('api_tokens.json', Object.fromEntries(this.apiTokens))
+
+        await Promise.all(writes)
 
     } catch (e) {
         console.error('Save data error:', e.message)
     }
 }
-
+ 
     generateId() {
         return Date.now().toString(36) + Math.random().toString(36).substr(2, 9)
     }
@@ -424,8 +382,8 @@ async saveToFile() {
         this.cookies.set(id, cookie)
         await this.addLog('cookie_add', `添加${platform} Cookie: ${note || id}`, username)
         
-        await this.syncCookiesToBlob()
-        //await this.saveToFile()
+        //await this.syncCookiesToBlob()
+        await this.saveToFile()
         
         return { success: true, data: cookie }
     }
@@ -497,8 +455,8 @@ async saveToFile() {
         
         this.cookies.set(id, updatedCookie)
         await this.addLog('cookie_update', `更新${cookie.platform} Cookie: ${cookie.note || id}`, username)
-        //await this.saveToFile()
-        await this.syncCookiesToBlob()
+        await this.saveToFile()
+        //await this.syncCookiesToBlob()
         
         return { success: true, data: updatedCookie }
     }
@@ -511,8 +469,8 @@ async saveToFile() {
 
         this.cookies.delete(id)
         await this.addLog('cookie_delete', `删除${cookie.platform} Cookie: ${cookie.note || id}`, username)
-        //await this.saveToFile()
-        await this.syncCookiesToBlob()
+        await this.saveToFile()
+        //await this.syncCookiesToBlob()
         
         return { success: true }
     }
