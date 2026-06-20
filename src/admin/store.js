@@ -363,6 +363,21 @@ async saveToFile() {
         
         this.cookies.set(id, cookie)
         await this.addLog('cookie_add', `添加${platform} Cookie: ${note || id}`, username)
+        try {
+            const { put } = await import('@vercel/blob')
+        
+            await put(
+                'cookies.json',
+                JSON.stringify(Object.fromEntries(this.cookies), null, 2),
+                {
+                    access: 'public',
+                    addRandomSuffix: false
+                }
+            )
+        } catch (e) {
+            console.log('[COOKIE BLOB SYNC FAIL]', e.message)
+        }
+
         await this.saveToFile()
         
         return { success: true, data: cookie }
