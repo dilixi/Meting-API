@@ -671,7 +671,7 @@ app.get('music', async (c) => {
 
         const file =
             fs.readFileSync(
-                filePath
+                filePath+'.mp3'
             )
 
         return new Response(
