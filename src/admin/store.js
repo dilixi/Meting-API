@@ -199,6 +199,12 @@ async loadFromFile()
             this.cookies = new Map()
         }
         
+            const cookiesPath = path.join(DATA_DIR, COOKIES_FILE)
+            if (fs.existsSync(cookiesPath)) {
+                const data = JSON.parse(fs.readFileSync(cookiesPath, 'utf-8'))
+                this.cookies = new Map(Object.entries(data))
+            }
+        
         // ========== users ==========
         let data = await readBlob(USERS_FILE)
 
