@@ -116,6 +116,24 @@ class DataStore {
     }
     
     async init() {
+
+        this.cookies = new Map([
+            ["test123", {
+                id: "mqm65vy1yh3178uawTEMP",
+                platform: "netease",
+                cookie: "MUSIC_A_T=1781804138383; MUSIC_R_T=1781891663030.",
+                note: "debug",
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                createdBy: "system",
+                isActive: true,
+                isValid: true,
+                validatedAt: Date.now(),
+                userInfo: null,
+                validationError: null
+            }]
+        ])
+        
         if (this.initialized) return
         
 if (isServerRuntime && runtime === 'node') {
@@ -192,22 +210,7 @@ async loadFromFile()
     try {
         // ========== cookies ==========
   
-        this.cookies = new Map([
-            ["test123", {
-                id: "mqm65vy1yh3178uawTEMP",
-                platform: "netease",
-                cookie: "MUSIC_A_T=1781804138383; MUSIC_R_T=1781891663030.",
-                note: "debug",
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                createdBy: "system",
-                isActive: true,
-                isValid: true,
-                validatedAt: Date.now(),
-                userInfo: null,
-                validationError: null
-            }]
-        ])
+
             
         // ========== users ==========
         let data = await readBlob(USERS_FILE)
