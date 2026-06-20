@@ -665,7 +665,7 @@ app.get('/music', async (c) => {
         if (!fs.existsSync(filePath)) {
             return c.json({
                 ok: false,
-                error: 'music not found'
+                error: 'music not found'+name
             }, 404)
         }
 
