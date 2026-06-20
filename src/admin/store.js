@@ -121,7 +121,7 @@ class DataStore {
         
         try {
             // Vercel / Node / Edge 都统一走这里
-            await this.loadFromBlob()
+            await this.loadFromFile()
     
             if (this.users.size === 0) {
                 this.users.set('admin', {
