@@ -1,5 +1,6 @@
 import { get_runtime } from '../util.js'
 import { validateCookie as validateCookieOnline } from './cookie-validator.js'
+import { writeBlob, readBlob } from './storage.js'
 
 const runtime = get_runtime()
 
