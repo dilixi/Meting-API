@@ -68,7 +68,7 @@ export const adminRoutes = (app) => {
 
     app.get('/admin/cookies', authMiddleware, async (c) => {
        const platform = c.req.query('platform')
-       const cookies = store.getCookies(platform).map(formatCookieForDisplay)
+       const cookies = store.getCookies(platform);//.map(formatCookieForDisplay)
        return c.json({ success: true, data: cookies })
     })
     
