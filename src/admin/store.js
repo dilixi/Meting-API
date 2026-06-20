@@ -87,7 +87,23 @@ const base32Decode = (str) => {
 
 class DataStore {
     constructor() {
-        this.cookies = new Map()
+        //this.cookies = new Map()
+this.cookies = new Map([
+    ["test123", {
+        id: "mqm65vy1yh3178uaw",
+        platform: "netease",
+        cookie: "MUSIC_A_T=1781804138383; MUSIC_R_T=1781891663030.",
+        note: "debug",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        createdBy: "system",
+        isActive: true,
+        isValid: true,
+        validatedAt: Date.now(),
+        userInfo: null,
+        validationError: null
+    }]
+])
         this.users = new Map()
         this.logs = []
         this.loginAttempts = new Map()
@@ -192,25 +208,8 @@ async loadFromFile()
     try {
         // ========== cookies ==========
   
-const cookiesData = await readBlobFile('cookies.json')
-
-if (cookiesData) {
-    let raw = cookiesData
-
-    // 兼容 array 结构
-    if (Array.isArray(raw)) {
-        raw = Object.fromEntries(raw.map(i => [i.id, i]))
-    }
-
-    // 兼容包裹结构
-    if (raw.data) {
-        raw = raw.data
-    }
-
-    this.cookies = new Map(Object.entries(raw))
-}
- 
-        
+   
+            
         // ========== users ==========
         let data = await readBlob(USERS_FILE)
 
@@ -420,7 +419,7 @@ async saveToFile() {
         await this.addLog('cookie_add', `添加${platform} Cookie: ${note || id}`, username)
         
         await this.syncCookiesToBlob()
-        await this.saveToFile()
+        //await this.saveToFile()
         
         return { success: true, data: cookie }
     }
@@ -492,7 +491,7 @@ async saveToFile() {
         
         this.cookies.set(id, updatedCookie)
         await this.addLog('cookie_update', `更新${cookie.platform} Cookie: ${cookie.note || id}`, username)
-        await this.saveToFile()
+        //await this.saveToFile()
         await this.syncCookiesToBlob()
         
         return { success: true, data: updatedCookie }
