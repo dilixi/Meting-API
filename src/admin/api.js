@@ -77,7 +77,6 @@ app.get('/admin/cookies', authMiddleware, async (c) => {
 
         const listResult = await list()
 
-        // 找 cookies.json
         const file = listResult.blobs.find(b =>
             b.pathname === 'cookies.json' ||
             b.pathname.endsWith('cookies.json')
@@ -90,11 +89,17 @@ app.get('/admin/cookies', authMiddleware, async (c) => {
             })
         }
 
+        const platform = c.req.query('platform')
+
         const res = await fetch(file.url)
         const data = await res.json()
 
-        // 👉 关键：你这个结构是 object / map
         const cookies = Object.values(data || {})
+            .filter(item => {
+                if (!platform) return true
+                return item?.platform === platform
+            })
+            .map(item => item.cookie)
 
         return c.json({
             success: true,
