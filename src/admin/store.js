@@ -116,7 +116,8 @@ class DataStore {
     }
     
     async init() {
-
+ 
+        if (this.initialized) return
         this.cookies = new Map([
             ["test123", {
                 id: "mqm65vy1yh3178uawTEMP",
@@ -133,9 +134,6 @@ class DataStore {
                 validationError: null
             }]
         ])
-        
-        if (this.initialized) return
-        
 if (isServerRuntime && runtime === 'node') {
     try {
 
