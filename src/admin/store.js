@@ -1,6 +1,6 @@
 import { get_runtime } from '../util.js'
 import { validateCookie as validateCookieOnline } from './cookie-validator.js'
-import { put } from "@vercel/blob";
+import { put, list } from '@vercel/blob'
 
 const runtime = get_runtime()
 
@@ -99,9 +99,6 @@ class DataStore {
     }
 
     async init() {
-        console.log(
-                        'store.js init'
-                    )
         if (this.initialized) return
         
         if (isServerRuntime && runtime === 'node') {
@@ -110,60 +107,6 @@ class DataStore {
                     fs.mkdirSync(DATA_DIR, { recursive: true })
                 }
                 await this.loadFromFile()
-                
-                try {
-                
-                    const { put } =
-                        await import(
-                            '@vercel/blob'
-                        )
-                
-                    console.log(
-                        '[BLOB]',
-                        'BEGIN TEST'
-                    )
-                
-                    const result =
-                        await put(
-                
-                            'blob-test.txt',
-                
-                            JSON.stringify({
-                
-                                ts:
-                                    Date.now(),
-                
-                                test:
-                                    'hello'
-                
-                            }),
-                
-                            {
-                
-                                access:
-                                    'private',
-                
-                                addRandomSuffix:
-                                    false
-                
-                            }
-                
-                        )
-                
-                    console.log(
-                        '[BLOB]',
-                        result.url
-                    )
-                
-                }
-                catch(e)
-                {
-                    console.log(
-                        '[BLOB]',
-                        e.message
-                    )
-                }
-                
             } catch (e) {
                 console.log('DataStore init:', e.message)
             }
@@ -192,88 +135,395 @@ class DataStore {
         return hash.toString(16)
     }
 
-    async loadFromFile() {
-        if (runtime !== 'node') return
-        
+async loadFromFile() {
+    if (runtime !== 'node') return
+
+    async function readJson(filepath) {
+
+        const filename =
+            path.basename(filepath)
+
+        // ---------- 优先 Blob ----------
         try {
-            const cookiesPath = path.join(DATA_DIR, COOKIES_FILE)
-            if (fs.existsSync(cookiesPath)) {
-                const data = JSON.parse(fs.readFileSync(cookiesPath, 'utf-8'))
-                this.cookies = new Map(Object.entries(data))
+
+            const blobs =
+                await list()
+
+            const file =
+                blobs.blobs.find(
+                    x =>
+                    x.pathname ===
+                    filename
+                )
+
+            if (file) {
+
+                console.log(
+                    '[BLOB LOAD]',
+                    filename
+                )
+
+                const resp =
+                    await fetch(
+                        file.url
+                    )
+
+                return await resp.json()
             }
-            
-            const usersPath = path.join(DATA_DIR, USERS_FILE)
-            if (fs.existsSync(usersPath)) {
-                const data = JSON.parse(fs.readFileSync(usersPath, 'utf-8'))
-                this.users = new Map(Object.entries(data))
-            }
-            
-            const logsPath = path.join(DATA_DIR, LOGS_FILE)
-            if (fs.existsSync(logsPath)) {
-                this.logs = JSON.parse(fs.readFileSync(logsPath, 'utf-8'))
-            }
-            
-            const securityPath = path.join(DATA_DIR, SECURITY_FILE)
-            if (fs.existsSync(securityPath)) {
-                const data = JSON.parse(fs.readFileSync(securityPath, 'utf-8'))
-                this.loginAttempts = new Map(Object.entries(data.loginAttempts || {}))
-                this.lockedAccounts = new Map(Object.entries(data.lockedAccounts || {}))
-            }
-            
-            const configPath = path.join(DATA_DIR, CONFIG_FILE)
-            if (fs.existsSync(configPath)) {
-                this.config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-            }
-            
-            const monitorLogsPath = path.join(DATA_DIR, MONITOR_LOGS_FILE)
-            if (fs.existsSync(monitorLogsPath)) {
-                this.monitorLogs = JSON.parse(fs.readFileSync(monitorLogsPath, 'utf-8'))
-            }
-            
-            const apiTokensPath = path.join(DATA_DIR, API_TOKENS_FILE)
-            if (fs.existsSync(apiTokensPath)) {
-                const data = JSON.parse(fs.readFileSync(apiTokensPath, 'utf-8'))
-                this.apiTokens = new Map(Object.entries(data))
-            }
-        } catch (e) {
-            console.error('Load data error:', e.message)
+
         }
+        catch (e) {
+
+            console.log(
+                '[BLOB LOAD FAIL]',
+                filename,
+                e.message
+            )
+
+        }
+
+        // ---------- 回退文件 ----------
+
+        try {
+
+            if (
+                fs.existsSync(
+                    filepath
+                )
+            ) {
+
+                console.log(
+                    '[FILE LOAD]',
+                    filename
+                )
+
+                return JSON.parse(
+                    fs.readFileSync(
+                        filepath,
+                        'utf-8'
+                    )
+                )
+
+            }
+
+        }
+        catch (e) {
+
+            console.log(
+                '[FILE LOAD FAIL]',
+                filename,
+                e.message
+            )
+
+        }
+
+        return null
     }
 
-    async saveToFile() {
-        if (runtime !== 'node') return
-        
-        try {
-            const cookiesPath = path.join(DATA_DIR, COOKIES_FILE)
-            fs.writeFileSync(cookiesPath, JSON.stringify(Object.fromEntries(this.cookies), null, 2))
-            
-            const usersPath = path.join(DATA_DIR, USERS_FILE)
-            fs.writeFileSync(usersPath, JSON.stringify(Object.fromEntries(this.users), null, 2))
-            
-            const logsPath = path.join(DATA_DIR, LOGS_FILE)
-            const recentLogs = this.logs.slice(-1000)
-            fs.writeFileSync(logsPath, JSON.stringify(recentLogs, null, 2))
-            
-            const securityPath = path.join(DATA_DIR, SECURITY_FILE)
-            const securityData = {
-                loginAttempts: Object.fromEntries(this.loginAttempts),
-                lockedAccounts: Object.fromEntries(this.lockedAccounts)
-            }
-            fs.writeFileSync(securityPath, JSON.stringify(securityData, null, 2))
-            
-            const configPath = path.join(DATA_DIR, CONFIG_FILE)
-            fs.writeFileSync(configPath, JSON.stringify(this.config, null, 2))
-            
-            const monitorLogsPath = path.join(DATA_DIR, MONITOR_LOGS_FILE)
-            const recentMonitorLogs = this.monitorLogs.slice(-500)
-            fs.writeFileSync(monitorLogsPath, JSON.stringify(recentMonitorLogs, null, 2))
-            
-            const apiTokensPath = path.join(DATA_DIR, API_TOKENS_FILE)
-            fs.writeFileSync(apiTokensPath, JSON.stringify(Object.fromEntries(this.apiTokens), null, 2))
-        } catch (e) {
-            console.error('Save data error:', e.message)
+    try {
+
+        let data
+
+        data =
+            await readJson(
+                path.join(
+                    DATA_DIR,
+                    COOKIES_FILE
+                )
+            )
+
+        if (data) {
+
+            this.cookies =
+                new Map(
+                    Object.entries(
+                        data
+                    )
+                )
+
+            console.log(
+                '[COOKIE COUNT]',
+                this.cookies.size
+            )
         }
+
+        data =
+            await readJson(
+                path.join(
+                    DATA_DIR,
+                    USERS_FILE
+                )
+            )
+
+        if (data)
+            this.users =
+                new Map(
+                    Object.entries(
+                        data
+                    )
+                )
+
+        data =
+            await readJson(
+                path.join(
+                    DATA_DIR,
+                    LOGS_FILE
+                )
+            )
+
+        if (data)
+            this.logs =
+                data
+
+        data =
+            await readJson(
+                path.join(
+                    DATA_DIR,
+                    SECURITY_FILE
+                )
+            )
+
+        if (data) {
+
+            this.loginAttempts =
+                new Map(
+                    Object.entries(
+                        data.loginAttempts ||
+                        {}
+                    )
+                )
+
+            this.lockedAccounts =
+                new Map(
+                    Object.entries(
+                        data.lockedAccounts ||
+                        {}
+                    )
+                )
+
+        }
+
+        data =
+            await readJson(
+                path.join(
+                    DATA_DIR,
+                    CONFIG_FILE
+                )
+            )
+
+        if (data)
+            this.config =
+                data
+
+        data =
+            await readJson(
+                path.join(
+                    DATA_DIR,
+                    MONITOR_LOGS_FILE
+                )
+            )
+
+        if (data)
+            this.monitorLogs =
+                data
+
+        data =
+            await readJson(
+                path.join(
+                    DATA_DIR,
+                    API_TOKENS_FILE
+                )
+            )
+
+        if (data)
+            this.apiTokens =
+                new Map(
+                    Object.entries(
+                        data
+                    )
+                )
+
     }
+    catch (e) {
+
+        console.error(
+            'Load data error:',
+            e.message
+        )
+
+    }
+}
+
+async saveToFile() {
+
+    if (runtime !== 'node')
+        return
+
+    async function writeJson(
+        filepath,
+        data
+    ) {
+
+        const filename =
+            path.basename(
+                filepath
+            )
+
+        const json =
+            JSON.stringify(
+                data,
+                null,
+                2
+            )
+
+        // ---------- 原逻辑 ----------
+        try {
+
+            fs.writeFileSync(
+                filepath,
+                json
+            )
+
+            console.log(
+                '[FILE SAVE]',
+                filename
+            )
+
+        }
+        catch (e) {
+
+            console.log(
+                '[FILE FAIL]',
+                filename,
+                e.message
+            )
+
+        }
+
+        // ---------- 新增 Blob ----------
+
+        try {
+
+            const result =
+                await put(
+                    filename,
+                    json,
+                    {
+                        access:
+                            'private',
+
+                        addRandomSuffix:
+                            false
+                    }
+                )
+
+            console.log(
+                '[BLOB SAVE]',
+                filename,
+                result.url
+            )
+
+        }
+        catch (e) {
+
+            console.log(
+                '[BLOB FAIL]',
+                filename,
+                e.message
+            )
+
+        }
+
+    }
+
+    try {
+
+        await writeJson(
+            path.join(
+                DATA_DIR,
+                COOKIES_FILE
+            ),
+            Object.fromEntries(
+                this.cookies
+            )
+        )
+
+        await writeJson(
+            path.join(
+                DATA_DIR,
+                USERS_FILE
+            ),
+            Object.fromEntries(
+                this.users
+            )
+        )
+
+        await writeJson(
+            path.join(
+                DATA_DIR,
+                LOGS_FILE
+            ),
+            this.logs.slice(
+                -1000
+            )
+        )
+
+        await writeJson(
+            path.join(
+                DATA_DIR,
+                SECURITY_FILE
+            ),
+            {
+                loginAttempts:
+                    Object.fromEntries(
+                        this.loginAttempts
+                    ),
+
+                lockedAccounts:
+                    Object.fromEntries(
+                        this.lockedAccounts
+                    )
+            }
+        )
+
+        await writeJson(
+            path.join(
+                DATA_DIR,
+                CONFIG_FILE
+            ),
+            this.config
+        )
+
+        await writeJson(
+            path.join(
+                DATA_DIR,
+                MONITOR_LOGS_FILE
+            ),
+            this.monitorLogs.slice(
+                -500
+            )
+        )
+
+        await writeJson(
+            path.join(
+                DATA_DIR,
+                API_TOKENS_FILE
+            ),
+            Object.fromEntries(
+                this.apiTokens
+            )
+        )
+
+    }
+    catch (e) {
+
+        console.error(
+            'Save data error:',
+            e.message
+        )
+
+    }
+}
 
     generateId() {
         return Date.now().toString(36) + Math.random().toString(36).substr(2, 9)
