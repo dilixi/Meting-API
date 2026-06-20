@@ -99,6 +99,9 @@ class DataStore {
     }
 
     async init() {
+        console.log(
+                        'store.js init'
+                    )
         if (this.initialized) return
         
         if (isServerRuntime && runtime === 'node') {
