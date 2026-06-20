@@ -2,6 +2,13 @@
     "env": {
         "RUNTIME": "vercel"
     },
+
+    "functions": {
+        "api/index.js": {
+            "includeFiles": "assets/**/*"
+        }
+    },
+
     "rewrites": [
         {
             "source": "/(.*)",
