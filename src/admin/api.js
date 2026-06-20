@@ -648,21 +648,10 @@ app.get('/music', async (c) => {
             }, 400)
         }
 
-        const fs =
-            await import('fs')
-
-        const path =
-            await import('path')
-
+         const { default: fs } = await import('fs')
+         
        const filePath = './assets/music'+name
-
-        if (!fs.existsSync(filePath)) {
-            return c.json({
-                ok: false,
-                error: 'music not found'+filePath+'Name:'+name
-            }, 404)
-        }
-
+  
         const file =
             fs.readFileSync(
                 filePath
@@ -692,25 +681,74 @@ app.get('/music', async (c) => {
 
     }
 })   
- 
-app.get('/debug/git', async (c) => {
+  
+app.get('/mymusic', async (c) => {
+    try {
 
-    const { default: fs } =
-        await import('fs')
-
-    return c.json({
-        root:
-            fs.readdirSync(
-                '.'
-            ),
-
-        src:
-            fs.readdirSync(
-                './assets/music'
+        const name =
+            decodeURIComponent(
+                c.req.query('name') || ''
             )
-    })
 
-})
+        if (!name) {
+            return c.text(
+                'missing name',
+                400
+            )
+        }
+
+        const {
+            default: fs
+        } =
+            await import('fs')
+
+        const path =
+            await import('path')
+
+        const filePath =
+            path.join(
+                '.',
+                'assets',
+                'music',
+                name
+            )
+
+        console.log(
+            'read:',
+            filePath
+        )
+
+        const file =
+            fs.readFileSync(
+                filePath
+            )
+
+        return new Response(
+            file,
+            {
+                headers: {
+                    'Content-Type':
+                        'audio/mpeg',
+
+                    'Content-Disposition':
+                        'inline',
+
+                    'Cache-Control':
+                        'public,max-age=86400'
+                }
+            }
+        )
+
+    } catch (e) {
+
+        return c.json({
+            ok:false,
+            error:e.message
+        },404)
+
+    }
+}) 
+
     
 }
 
