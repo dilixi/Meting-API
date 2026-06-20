@@ -206,8 +206,8 @@ this.cookies = new Map([
         
     if (runtime !== 'node') return
 
-//     try {
-//         // ========== cookies ==========
+    try {
+        // ========== cookies ==========
 // const cookiesData = await readBlobFile('cookies.json')
 
 // if (cookiesData && typeof cookiesData === 'object') {
