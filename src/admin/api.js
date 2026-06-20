@@ -579,6 +579,59 @@ app.get('/admin/blob-debug', async (c) => {
         })
     }
 })
+
+app.get('/admin/test_cookies_get', async (c) => {
+    try {
+        console.log('[COOKIES DEBUG] start')
+
+        const { list } = await import('@vercel/blob')
+
+        const listResult = await list()
+
+        console.log('[COOKIES DEBUG] total blobs:', listResult.blobs.length)
+
+        // 找 cookies.json（兼容 fallback）
+        const file = listResult.blobs.find(b =>
+            b.pathname === 'cookies.json' ||
+            b.pathname.endsWith('cookies.json')
+        )
+
+        if (!file) {
+            return c.json({
+                ok: false,
+                error: 'cookies.json not found',
+                blobs: listResult.blobs.map(b => b.pathname)
+            })
+        }
+
+        console.log('[COOKIES DEBUG] found:', file.url)
+
+        const res = await fetch(file.url)
+        const data = await res.json()
+
+        const cookieCount = Object.keys(data || {}).length
+
+        return c.json({
+            ok: true,
+            file: {
+                pathname: file.pathname,
+                url: file.url
+            },
+            summary: {
+                cookieCount
+            },
+            sample: Object.values(data || {}).slice(0, 3)
+        })
+
+    } catch (e) {
+        console.error('[COOKIES DEBUG ERROR]', e)
+
+        return c.json({
+            ok: false,
+            error: e.message
+        }, 500)
+    }
+})
 }
 
 export default adminRoutes
