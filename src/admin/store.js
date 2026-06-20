@@ -86,24 +86,8 @@ const base32Decode = (str) => {
 }
 
 class DataStore {
-    constructor() {
-        //this.cookies = new Map()
-this.cookies = new Map([
-    ["test123", {
-        id: "mqm65vy1yh3178uaw",
-        platform: "netease",
-        cookie: "MUSIC_A_T=1781804138383; MUSIC_R_T=1781891663030.",
-        note: "debug",
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        createdBy: "system",
-        isActive: true,
-        isValid: true,
-        validatedAt: Date.now(),
-        userInfo: null,
-        validationError: null
-    }]
-])
+    constructor() { 
+        this.cookies = new Map()
         this.users = new Map()
         this.logs = []
         this.loginAttempts = new Map()
@@ -208,7 +192,22 @@ async loadFromFile()
     try {
         // ========== cookies ==========
   
-   
+        this.cookies = new Map([
+            ["test123", {
+                id: "mqm65vy1yh3178uawTEMP",
+                platform: "netease",
+                cookie: "MUSIC_A_T=1781804138383; MUSIC_R_T=1781891663030.",
+                note: "debug",
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                createdBy: "system",
+                isActive: true,
+                isValid: true,
+                validatedAt: Date.now(),
+                userInfo: null,
+                validationError: null
+            }]
+        ])
             
         // ========== users ==========
         let data = await readBlob(USERS_FILE)
