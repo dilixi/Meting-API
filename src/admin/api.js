@@ -481,53 +481,98 @@ export const adminRoutes = (app) => {
         }
     })
 
-app.get('/admin/blob-debug', async (c) => {
-
+app.get('/admin/blob-debug', authMiddleware, adminMiddleware, async (c) => {
     try {
+        const { list, put } = await import('@vercel/blob')
 
-        const token =
-            process.env.BLOB_READ_WRITE_TOKEN
+        // ==============================
+        // 1. 模拟 store.js 的真实 key
+        // ==============================
+        const testFiles = [
+            'cookies.json',
+            'users.json',
+            'logs.json'
+        ]
 
-        const blob =
-            await import('@vercel/blob')
+        // ==============================
+        // 2. 写入测试（模拟 store 行为）
+        // ==============================
+        const writeResults = []
 
-        const filename =
-            `debug-${Date.now()}.json`
+        for (const filename of testFiles) {
+            const key = filename
 
-        const write =
-            await blob.put(
-                filename,
+            const res = await put(
+                key,
                 JSON.stringify({
+                    test: true,
+                    file: filename,
                     time: Date.now()
                 }),
                 {
-                    access: 'public'
+                    access: 'public',
+                    addRandomSuffix: false
                 }
             )
 
-        const list =
-            await blob.list()
+            writeResults.push({
+                key,
+                url: res.url
+            })
+        }
 
+        // ==============================
+        // 3. 读取 Blob 列表
+        // ==============================
+        const all = await list()
+
+        const blobKeys = all.blobs.map(b => b.pathname)
+
+        // ==============================
+        // 4. 验证匹配情况
+        // ==============================
+        const matchReport = testFiles.map(f => {
+            return {
+                file: f,
+                existsInBlob: blobKeys.includes(f)
+            }
+        })
+
+        // ==============================
+        // 5. 模拟 store.js loadFromFile 逻辑验证
+        // ==============================
+        const loadTest = {}
+
+        for (const f of testFiles) {
+            const hit = all.blobs.find(b => b.pathname === f)
+
+            loadTest[f] = {
+                found: !!hit,
+                url: hit?.url || null
+            }
+        }
+
+        // ==============================
+        // 6. 返回完整报告
+        // ==============================
         return c.json({
             ok: true,
 
-            debug: {
-                hasToken: !!token,
-                tokenPrefix: token
-                    ? token.slice(0, 12)
-                    : null,
-                runtime: typeof token,
+            summary: {
+                totalBlobs: all.blobs.length,
+                testFiles
             },
 
-            write: {
-                url: write.url
-            },
+            writeResults,
 
-            blobCount: list.blobs.length
+            blobKeys,
+
+            matchReport,
+
+            loadTest
         })
 
     } catch (e) {
-
         return c.json({
             ok: false,
             error: e.message
