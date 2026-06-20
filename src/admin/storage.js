@@ -1,4 +1,4 @@
-import { list, put, get } from '@vercel/blob'
+import { list, put } from '@vercel/blob'
 
 /**
  * 写入 JSON 到 Blob
