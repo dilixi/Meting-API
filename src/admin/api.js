@@ -431,6 +431,60 @@ export const adminRoutes = (app) => {
             return c.json(result, 404)
         }
     })
+    
+    app.get('/admin/blob-test', authMiddleware, adminMiddleware, async (c) => {
+    
+        try {
+    
+            console.log('[BLOB TEST] start')
+    
+            const blob =
+                await import('@vercel/blob')
+    
+            console.log('[BLOB TEST] sdk loaded')
+    
+            const testFile =
+                `test-${Date.now()}.json`
+    
+            // 1. 写入
+            const writeResult =
+                await blob.put(
+                    testFile,
+                    JSON.stringify({
+                        time: Date.now(),
+                        msg: 'hello blob'
+                    }),
+                    {
+                        access: 'public',
+                        addRandomSuffix: false
+                    }
+                )
+    
+            console.log('[BLOB TEST] write:', writeResult.url)
+    
+            // 2. 读取 list
+            const listResult =
+                await blob.list()
+    
+            console.log('[BLOB TEST] list count:', listResult.blobs.length)
+    
+            return c.json({
+                success: true,
+                write: writeResult,
+                total: listResult.blobs.length
+            })
+    
+        }
+        catch (e) {
+    
+            console.error('[BLOB TEST ERROR]', e)
+    
+            return c.json({
+                success: false,
+                error: e.message
+            }, 500)
+        }
+    })
 }
 
 export default adminRoutes
