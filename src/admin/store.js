@@ -187,7 +187,7 @@ async loadFromFile()
         }
     }
         
-    if (runtime !== 'node') return
+   // if (runtime !== 'node') return
 
     try {
         // ========== cookies ==========
