@@ -97,7 +97,24 @@ class DataStore {
         this.apiTokens = new Map()
         this.initialized = false
     }
-
+    
+    async syncCookiesToBlob() {
+        try {
+            const { put } = await import('@vercel/blob')
+    
+            await put(
+                'cookies.json',
+                JSON.stringify(Object.fromEntries(this.cookies), null, 2),
+                {
+                    access: 'public',
+                    addRandomSuffix: false
+                }
+            )
+        } catch (e) {
+            console.log('[COOKIE SYNC FAIL]', e.message)
+        }
+    }
+    
     async init() {
         if (this.initialized) return
         
@@ -140,24 +157,38 @@ if (isServerRuntime && runtime === 'node') {
         }
         return hash.toString(16)
     }
+    
 
-async loadFromFile() {
+
+    
+async loadFromFile() 
+    {
+    const { list } = await import('@vercel/blob')
+        
+async function readBlobFile(filename) {
+    try {
+        const files = await list()
+        const file = files.blobs.find(b => b.pathname === filename)
+        if (!file) return null
+
+        const res = await fetch(file.url)
+        return await res.json()
+    } catch {
+        return null
+    }
+}
+        
     if (runtime !== 'node') return
 
     try {
         // ========== cookies ==========
-        let data = await readBlob(COOKIES_FILE)
-
-        if (!data && fs.existsSync(path.join(DATA_DIR, COOKIES_FILE))) {
-            data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, COOKIES_FILE), 'utf-8'))
-        }
-
-        if (data) {
-            this.cookies = new Map(Object.entries(data))
-        }
+        const cookiesData = await readBlobFile('cookies.json')
+        if (cookiesData) {
+             this.cookies = new Map(Object.entries(cookiesData))
+         }
 
         // ========== users ==========
-        data = await readBlob(USERS_FILE)
+        let data = await readBlob(USERS_FILE)
 
         if (!data && fs.existsSync(path.join(DATA_DIR, USERS_FILE))) {
             data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, USERS_FILE), 'utf-8'))
@@ -363,22 +394,9 @@ async saveToFile() {
         
         this.cookies.set(id, cookie)
         await this.addLog('cookie_add', `添加${platform} Cookie: ${note || id}`, username)
-        try {
-            const { put } = await import('@vercel/blob')
         
-            await put(
-                'cookies.json',
-                JSON.stringify(Object.fromEntries(this.cookies), null, 2),
-                {
-                    access: 'public',
-                    addRandomSuffix: false
-                }
-            )
-        } catch (e) {
-            console.log('[COOKIE BLOB SYNC FAIL]', e.message)
-        }
-
-        await this.saveToFile()
+        await this.syncCookiesToBlob()
+        //await this.saveToFile()
         
         return { success: true, data: cookie }
     }
@@ -450,7 +468,8 @@ async saveToFile() {
         
         this.cookies.set(id, updatedCookie)
         await this.addLog('cookie_update', `更新${cookie.platform} Cookie: ${cookie.note || id}`, username)
-        await this.saveToFile()
+        //await this.saveToFile()
+        await this.syncCookiesToBlob()
         
         return { success: true, data: updatedCookie }
     }
@@ -463,7 +482,8 @@ async saveToFile() {
 
         this.cookies.delete(id)
         await this.addLog('cookie_delete', `删除${cookie.platform} Cookie: ${cookie.note || id}`, username)
-        await this.saveToFile()
+        //await this.saveToFile()
+        await this.syncCookiesToBlob()
         
         return { success: true }
     }
