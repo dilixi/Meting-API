@@ -151,124 +151,105 @@ class DataStore {
     }
     
 async loadFromFile() {
-    try {
-        const { list } = await import('@vercel/blob')
+    const safeSelect = async (table) => {
+        try {
+            const { data, error } = await supabase
+                .from(table)
+                .select('value')
+                .limit(1)
+                .single()
 
-        async function readBlobFile(filename) {
-            try {
-                const files = await list()
-
-                const file = files.blobs.find(b =>
-                    b.pathname === filename ||
-                    b.pathname.endsWith(filename)
-                )
-
-                if (!file) return null
-
-                const res = await fetch(file.url)
-                return await res.json()
-
-            } catch (e) {
-                console.log('[READ BLOB FAIL]', filename, e.message)
+            if (error && error.code !== 'PGRST116') {
+                console.log(`[LOAD ERROR] ${table}:`, error.message)
                 return null
             }
+
+            return data?.value || null
+        } catch (e) {
+            console.log(`[LOAD EXCEPTION] ${table}:`, e.message)
+            return null
         }
-
-        // ========== cookies ==========
-        const cookiesData = await readBlobFile('cookies.json')
-        if (cookiesData && typeof cookiesData === 'object') {
-            this.cookies = new Map(Object.entries(cookiesData))
-        } else {
-            this.cookies = new Map()
-        }
-
-        // ========== users ==========
-        const usersData = await readBlobFile('users.json')
-        if (usersData && typeof usersData === 'object') {
-            this.users = new Map(Object.entries(usersData))
-        } else {
-            this.users = new Map()
-        }
-
-        // ========== logs ==========
-        const logsData = await readBlobFile('logs.json')
-        this.logs = Array.isArray(logsData) ? logsData : []
-
-        // ========== security ==========
-        const securityData = await readBlobFile('security.json')
-        if (securityData) {
-            this.loginAttempts = new Map(
-                Object.entries(securityData.loginAttempts || {})
-            )
-            this.lockedAccounts = new Map(
-                Object.entries(securityData.lockedAccounts || {})
-            )
-        }
-
-        // ========== config ==========
-        const configData = await readBlobFile('config.json')
-        this.config = configData || {}
-
-        // ========== monitor ==========
-        const monitorData = await readBlobFile('monitor_logs.json')
-        this.monitorLogs = Array.isArray(monitorData) ? monitorData : []
-
-        // ========== tokens ==========
-        const tokenData = await readBlobFile('api_tokens.json')
-        if (tokenData) {
-            this.apiTokens = new Map(Object.entries(tokenData))
-        } else {
-            this.apiTokens = new Map()
-        }
-
-        console.log('[BLOB LOAD] done')
-
-    } catch (e) {
-        console.error('Load data error:', e.message)
     }
+
+    // ===== 并行/串行都可以，这里用简单串行更稳 =====
+    const cookies = await safeSelect('cookies')
+    const users = await safeSelect('users')
+    const logs = await safeSelect('logs')
+    const security = await safeSelect('security')
+    const config = await safeSelect('config')
+    const monitor = await safeSelect('monitor_logs')
+    const tokens = await safeSelect('api_tokens')
+
+    // ===== 赋值（带兜底） =====
+    this.cookies = new Map(Object.entries(cookies || {}))
+    this.users = new Map(Object.entries(users || {}))
+    this.logs = logs?.logs || []
+    this.config = config || {}
+    this.monitorLogs = monitor || []
+    this.apiTokens = new Map(Object.entries(tokens || {}))
+
+    this.loginAttempts = new Map(
+        Object.entries(security?.loginAttempts || {})
+    )
+
+    this.lockedAccounts = new Map(
+        Object.entries(security?.lockedAccounts || {})
+    )
+
+    console.log('[SUPABASE LOAD] done')
 }
+    
 async saveToFile() {
-    try {
-        const writes = []
-
-        const { put } = await import('@vercel/blob')
-
-        const save = (name, data) =>
-            writes.push(
-                put(name, JSON.stringify(data, null, 2), {
-                    access: 'public',
-                    addRandomSuffix: false
+    const safeUpsert = async (table, value) => {
+        try {
+            const { error } = await supabase
+                .from(table)
+                .upsert({
+                    id: table,
+                    value
                 })
-            )
 
-        // ========== cookies ==========
-        save('cookies.json', Object.fromEntries(this.cookies))
+            if (error) {
+                console.log(`[SAVE ERROR] ${table}:`, error.message)
+            }
+        } catch (e) {
+            console.log(`[SAVE EXCEPTION] ${table}:`, e.message)
+        }
+    }
 
-        // ========== users ==========
-        save('users.json', Object.fromEntries(this.users))
+    try {
+        await Promise.all([
+            // ===== cookies =====
+            safeUpsert('cookies', Object.fromEntries(this.cookies)),
 
-        // ========== logs ==========
-        save('logs.json', this.logs.slice(-1000))
+            // ===== users =====
+            safeUpsert('users', Object.fromEntries(this.users)),
 
-        // ========== security ==========
-        save('security.json', {
-            loginAttempts: Object.fromEntries(this.loginAttempts),
-            lockedAccounts: Object.fromEntries(this.lockedAccounts)
-        })
+            // ===== logs =====
+            safeUpsert('logs', {
+                logs: this.logs.slice(-1000)
+            }),
 
-        // ========== config ==========
-        save('config.json', this.config)
+            // ===== security =====
+            safeUpsert('security', {
+                loginAttempts: Object.fromEntries(this.loginAttempts),
+                lockedAccounts: Object.fromEntries(this.lockedAccounts)
+            }),
 
-        // ========== monitor ==========
-        save('monitor_logs.json', this.monitorLogs.slice(-500))
+            // ===== config =====
+            safeUpsert('config', this.config),
 
-        // ========== tokens ==========
-        save('api_tokens.json', Object.fromEntries(this.apiTokens))
+            // ===== monitor =====
+            safeUpsert('monitor_logs', this.monitorLogs.slice(-500)),
 
-        await Promise.all(writes)
+            // ===== tokens =====
+            safeUpsert('api_tokens', Object.fromEntries(this.apiTokens))
+        ])
+
+        console.log('[SUPABASE SAVE] done')
 
     } catch (e) {
-        console.error('Save data error:', e.message)
+        console.log('[SAVE GLOBAL ERROR]', e.message)
     }
 }
  
