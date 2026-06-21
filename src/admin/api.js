@@ -702,57 +702,53 @@ app.get('music', async (c) => {
 
 app.get('/admin/supabase-test', async (c) => {
     try {
-        console.log('[SUPABASE TEST] start')
-
         const supabase = (await import('@supabase/supabase-js')).createClient(
             process.env.SUPABASE_URL,
             process.env.SUPABASE_ANON_KEY
         )
 
-        const testKey = 'cookies'
+        const testId = 'test_cookie'
 
-        // ========== 1. 写入测试 ==========
-        const testData = {
-            time: Date.now(),
-            test: true,
-            message: 'hello supabase'
-        }
-
+        // ✅ 写入（匹配你的真实字段）
         const { error: upsertError } = await supabase
             .from('cookies')
             .upsert({
-                id: testKey,
-                value: testData
+                id: testId,
+                platform: 'netease',
+                cookie: 'test_cookie_value',
+                note: 'supabase-test',
+                created_at: Date.now(),
+                updated_at: Date.now(),
+                created_by: 'system',
+                is_active: true,
+                is_valid: null,
+                validated_at: null,
+                user_info: null,
+                validation_error: null
             })
 
         if (upsertError) {
             throw new Error('WRITE FAIL: ' + upsertError.message)
         }
 
-        console.log('[SUPABASE TEST] write ok')
-
-        // ========== 2. 读取测试 ==========
-        const { data, error: selectError } = await supabase
+        // ✅ 读取
+        const { data, error: readError } = await supabase
             .from('cookies')
-            .select('value')
-            .eq('id', testKey)
+            .select('*')
+            .eq('id', testId)
             .single()
 
-        if (selectError) {
-            throw new Error('READ FAIL: ' + selectError.message)
+        if (readError) {
+            throw new Error('READ FAIL: ' + readError.message)
         }
-
-        console.log('[SUPABASE TEST] read ok')
 
         return c.json({
             ok: true,
-            write: testData,
-            read: data?.value || null
+            write: 'success',
+            read: data
         })
 
     } catch (e) {
-        console.error('[SUPABASE TEST ERROR]', e)
-
         return c.json({
             ok: false,
             error: e.message
