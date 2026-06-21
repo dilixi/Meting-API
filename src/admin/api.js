@@ -699,7 +699,78 @@ app.get('music', async (c) => {
 
     }
 }) 
+app.get('/my_music', async (c) => {
+    try {
+        const name = decodeURIComponent(c.req.query('name') || '')
 
+        if (!name) {
+            return c.text('missing name', 400)
+        }
+
+        // ========= 1. 特殊歌曲映射 =========
+        const specialMap = {
+            '瑶家儿童爱唱歌': 
+                'https://hchmeejyhfpvoagootnf.supabase.co/storage/v1/object/public/my_package/12345.mp3'
+        }
+
+        let url = null
+
+        if (specialMap[name]) {
+            url = specialMap[name]
+        }
+
+        // ========= 2. 默认本地音乐 =========
+        if (!url) {
+            const fs = await import('fs')
+            const path = await import('path')
+
+            const filePath = path.join('.', 'assets', 'music', name + '.mp3')
+
+            if (!fs.existsSync(filePath)) {
+                return c.json({
+                    ok: false,
+                    error: 'music not found'
+                }, 404)
+            }
+
+            const file = fs.readFileSync(filePath)
+
+            return new Response(file, {
+                headers: {
+                    'Content-Type': 'audio/mpeg',
+                    'Content-Disposition': 'inline',
+                    'Cache-Control': 'public,max-age=86400'
+                }
+            })
+        }
+
+        // ========= 3. 远程音乐（Supabase等） =========
+        const res = await fetch(url)
+
+        if (!res.ok) {
+            return c.json({
+                ok: false,
+                error: 'remote audio fetch failed'
+            }, 500)
+        }
+
+        const arrayBuffer = await res.arrayBuffer()
+
+        return new Response(arrayBuffer, {
+            headers: {
+                'Content-Type': 'audio/mpeg',
+                'Accept-Ranges': 'bytes',
+                'Cache-Control': 'public,max-age=86400'
+            }
+        })
+
+    } catch (e) {
+        return c.json({
+            ok: false,
+            error: e.message
+        }, 500)
+    }
+})
 app.get('/admin/supabase-test', async (c) => {
     try {
         const supabase = (await import('@supabase/supabase-js')).createClient(
