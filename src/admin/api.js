@@ -11,6 +11,87 @@ const formatCookieForDisplay = (cookie) => {
     }
     return { id, platform, cookiePreview, note, createdAt, updatedAt, createdBy, isActive, isValid, validatedAt, userInfo, validationError }
 }
+const musicCache = new Map()
+const MAX_CACHE = 10 * 1024 * 1024 // 10MB
+
+function getCachedMusic(name) {
+    const hit = musicCache.get(name)
+    if (!hit) return null
+
+    // 10分钟过期
+    if (Date.now() - hit.ts > 10 * 60 * 1000) {
+        musicCache.delete(name)
+        return null
+    }
+
+    return hit.buffer
+}
+
+function setCachedMusic(name, buffer) {
+    // 只缓存不超过 10MB 的完整音频
+    if (!(buffer instanceof Buffer)) return
+    if (buffer.length > MAX_CACHE) return
+
+    musicCache.set(name, {
+        buffer,
+        ts: Date.now()
+    })
+}
+
+async function getContentLength(url) {
+    const res = await fetch(url, { method: 'HEAD' })
+    if (!res.ok) return null
+
+    const len = res.headers.get('content-length')
+    return len ? Number(len) : null
+}
+
+async function fetchRangeBuffer(url, start, end) {
+    const res = await fetch(url, {
+        headers: {
+            Range: `bytes=${start}-${end}`
+        }
+    })
+
+    if (!(res.ok || res.status === 206)) {
+        throw new Error(`range fetch failed: ${res.status}`)
+    }
+
+    const ab = await res.arrayBuffer()
+    return Buffer.from(ab)
+}
+
+async function fetchRangeStream(url, start, end, controller, cacheState) {
+    const res = await fetch(url, {
+        headers: {
+            Range: `bytes=${start}-${end}`
+        }
+    })
+
+    if (!(res.ok || res.status === 206) || !res.body) {
+        throw new Error(`stream fetch failed: ${res.status}`)
+    }
+
+    const reader = res.body.getReader()
+
+    while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        controller.enqueue(value)
+
+        if (cacheState.total < MAX_CACHE) {
+            const remaining = MAX_CACHE - cacheState.total
+            const take = Math.min(remaining, value.length)
+
+            if (take > 0) {
+                cacheState.chunks.push(Buffer.from(value.slice(0, take)))
+                cacheState.total += take
+            }
+        }
+    }
+}
+
 
 export const adminRoutes = (app) => {
     app.post('/admin/login', async (c) => {
@@ -771,52 +852,129 @@ app.get('/my_music', async (c) => {
         }, 500)
     }
 })
-app.get('/admin/supabase-test', async (c) => {
+app.get('/my_music2', async (c) => {
     try {
-        const supabase = (await import('@supabase/supabase-js')).createClient(
-            process.env.SUPABASE_URL,
-            process.env.SUPABASE_ANON_KEY
-        )
+        const name = decodeURIComponent(c.req.query('name') || '')
 
-        const testId = 'test_cookie'
+        if (!name) {
+            return c.text('missing name', 400)
+        }
 
-        // ✅ 写入（匹配你的真实字段）
-        const { error: upsertError } = await supabase
-            .from('cookies')
-            .upsert({
-                id: testId,
-                platform: 'netease',
-                cookie: 'test_cookie_value',
-                note: 'supabase-test',
-                created_at: Date.now(),
-                updated_at: Date.now(),
-                created_by: 'system',
-                is_active: true,
-                is_valid: null,
-                validated_at: null,
-                user_info: null,
-                validation_error: null
+        const specialMap = {
+            '瑶家儿童爱唱歌':
+                'https://hchmeejyhfpvoagootnf.supabase.co/storage/v1/object/public/my_package/12345.mp3'
+        }
+
+        const url = specialMap[name]
+
+        // ===== 本地文件 =====
+        if (!url) {
+            const fs = await import('fs')
+            const path = await import('path')
+
+            const filePath = path.join('.', 'assets', 'music', name + '.mp3')
+
+            if (!fs.existsSync(filePath)) {
+                return c.json({ ok: false, error: 'music not found' }, 404)
+            }
+
+            const file = fs.readFileSync(filePath)
+
+            return new Response(file, {
+                headers: {
+                    'Content-Type': 'audio/mpeg',
+                    'Cache-Control': 'public,max-age=86400'
+                }
             })
-
-        if (upsertError) {
-            throw new Error('WRITE FAIL: ' + upsertError.message)
         }
 
-        // ✅ 读取
-        const { data, error: readError } = await supabase
-            .from('cookies')
-            .select('*')
-            .eq('id', testId)
-            .single()
-
-        if (readError) {
-            throw new Error('READ FAIL: ' + readError.message)
+        // ===== 命中内存缓存，直接返回 =====
+        const cached = getCachedMusic(name)
+        if (cached) {
+            return new Response(cached, {
+                headers: {
+                    'Content-Type': 'audio/mpeg',
+                    'Content-Length': String(cached.length),
+                    'Cache-Control': 'public,max-age=86400',
+                    'X-Cache': 'HIT'
+                }
+            })
         }
 
-        return c.json({
-            ok: true,
-            write: 'success',
-            read: data
+        // ===== 先拿总长度，才能算 1/3 =====
+        const totalLength = await getContentLength(url)
+        if (!totalLength) {
+            // 没拿到长度就退化成普通流式转发
+            const res = await fetch(url)
+            if (!res.ok || !res.body) {
+                return c.json({ ok: false, error: 'remote audio fetch failed' }, 500)
+            }
+
+            return new Response(res.body, {
+                headers: {
+                    'Content-Type': 'audio/mpeg',
+                    'Cache-Control': 'public,max-age=86400',
+                    'X-Cache': 'MISS'
+                }
+            })
+        }
+
+        const firstThird = Math.max(1, Math.floor(totalLength / 3))
+        const firstEnd = Math.min(totalLength - 1, firstThird - 1)
+
+        const cacheState = {
+            chunks: [],
+            total: 0
+        }
+
+        const stream = new ReadableStream({
+            async start(controller) {
+                try {
+                    // 1) 先下载 1/3，完整拿到后先发出去
+                    const firstPart = await fetchRangeBuffer(url, 0, firstEnd)
+                    controller.enqueue(firstPart)
+
+                    if (cacheState.total < MAX_CACHE) {
+                        const remaining = MAX_CACHE - cacheState.total
+                        const take = Math.min(remaining, firstPart.length)
+                        if (take > 0) {
+                            cacheState.chunks.push(firstPart.slice(0, take))
+                            cacheState.total += take
+                        }
+                    }
+
+                    // 2) 再下载剩余部分，边下边发
+                    if (firstEnd < totalLength - 1) {
+                        await fetchRangeStream(
+                            url,
+                            firstEnd + 1,
+                            totalLength - 1,
+                            controller,
+                            cacheState
+                        )
+                    }
+
+                    // 3) 如果整个文件 <= 10MB，完整缓存起来
+                    const fullBuffer = Buffer.concat(cacheState.chunks)
+                    if (fullBuffer.length === totalLength && totalLength <= MAX_CACHE) {
+                        setCachedMusic(name, fullBuffer)
+                    }
+
+                    controller.close()
+                } catch (e) {
+                    controller.error(e)
+                }
+            }
+        })
+
+        return new Response(stream, {
+            headers: {
+                'Content-Type': 'audio/mpeg',
+                'Content-Length': String(totalLength),
+                'Accept-Ranges': 'bytes',
+                'Cache-Control': 'public,max-age=86400',
+                'X-Cache': 'MISS'
+            }
         })
 
     } catch (e) {
