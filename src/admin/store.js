@@ -1,12 +1,18 @@
 import { get_runtime } from '../util.js'
 import { validateCookie as validateCookieOnline } from './cookie-validator.js'
 import { writeBlob, readBlob } from './storage.js'
+import { createClient } from '@supabase/supabase-js'
 
 const runtime = get_runtime()
 
 const isServerRuntime = ['node', 'deno', 'bun'].includes(runtime)
 
 let fs, path, nodeCrypto
+
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY
+)
 
 if (isServerRuntime && runtime === 'node') {
     fs = await import('fs')
