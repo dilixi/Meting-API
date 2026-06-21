@@ -1,6 +1,5 @@
 import { get_runtime } from '../util.js'
-import { validateCookie as validateCookieOnline } from './cookie-validator.js'
-import { writeBlob, readBlob } from './storage.js'
+import { validateCookie as validateCookieOnline } from './cookie-validator.js' 
 import { createClient } from '@supabase/supabase-js'
 
 const runtime = get_runtime()
@@ -103,24 +102,7 @@ class DataStore {
         this.apiTokens = new Map()
         this.initialized = false
     }
-    
-    async syncCookiesToBlob() {
-        try {
-            const { put } = await import('@vercel/blob')
-    
-            await put(
-                'cookies.json',
-                JSON.stringify(Object.fromEntries(this.cookies), null, 2),
-                {
-                    access: 'public',
-                    addRandomSuffix: false
-                }
-            )
-        } catch (e) {
-            console.log('[COOKIE SYNC FAIL]', e.message)
-        }
-    }
-    
+      
     async init() 
     {
         if (this.initialized) return
@@ -156,153 +138,146 @@ class DataStore {
         return hash.toString(16)
     }
     
-async loadFromFile() {
-    const safeSelectAll = async (table) => {
-        try {
-            const { data, error } = await supabase
-                .from(table)
-                .select('*')
+   // LOAD（唯一正确版本）
+    // =========================
+    async loadFromFile() {
 
-            if (error) {
-                console.log(`[LOAD ERROR] ${table}:`, error.message)
-                return []
-            }
-
+        const load = async (table) => {
+            const { data, error } = await supabase.from(table).select('*')
+            if (error) return []
             return data || []
-        } catch (e) {
-            console.log(`[LOAD EXCEPTION] ${table}:`, e.message)
-            return []
         }
+
+        const [cookies, users, logs, security, config, monitor, tokens] =
+            await Promise.all([
+                load('cookies'),
+                load('users'),
+                load('logs'),
+                load('security'),
+                load('config'),
+                load('monitor_logs'),
+                load('api_tokens')
+            ])
+
+        // ===== cookies =====
+        this.cookies = new Map(
+            cookies.map(c => [c.id, {
+                id: c.id,
+                platform: c.platform,
+                cookie: c.cookie,
+                note: c.note,
+                createdAt: c.created_at,
+                updatedAt: c.updated_at,
+                createdBy: c.created_by,
+                isActive: c.is_active,
+                isValid: c.is_valid,
+                validatedAt: c.validated_at,
+                userInfo: c.user_info,
+                validationError: c.validation_error
+            }])
+        )
+
+        // ===== users（关键修复）=====
+        this.users = new Map(
+            users.map(u => [u.username, {
+                username: u.username,
+                password: u.password,
+                role: u.role,
+                createdAt: u.created_at,
+                lastLogin: u.last_login,
+                token: u.token,
+                twoFactorEnabled: u.two_factor_enabled,
+                twoFactorSecret: u.two_factor_secret
+            }])
+        )
+
+        // logs
+        this.logs = logs || []
+
+        // security
+        this.loginAttempts = new Map(security.map(s => [s.username, s.login_attempts]))
+        this.lockedAccounts = new Map()
+
+        // config
+        this.config = config[0]?.data || {}
+
+        // monitor
+        this.monitorLogs = monitor || []
+
+        // tokens
+        this.apiTokens = new Map(
+            tokens.map(t => [t.id, t])
+        )
     }
 
-    const [
-        cookies,
-        users,
-        logs,
-        security,
-        config,
-        monitor,
-        tokens
-    ] = await Promise.all([
-        safeSelectAll('cookies'),
-        safeSelectAll('users'),
-        safeSelectAll('logs'),
-        safeSelectAll('security'),
-        safeSelectAll('config'),
-        safeSelectAll('monitor_logs'),
-        safeSelectAll('api_tokens')
-    ])
+    // =========================
+    // SAVE（关键修复）
+    // =========================
+    async saveToFile() {
 
-    // ===== cookies =====
-    this.cookies = new Map(
-        cookies.map(c => [c.id, c])
-    )
-
-    // ===== users =====
-    this.users = new Map(
-        users.map(u => [u.username, u])
-    )
-
-    // ===== logs =====
-    this.logs = logs.sort((a, b) => b.timestamp - a.timestamp)
-
-    // ===== security =====
-    this.loginAttempts = new Map()
-    this.lockedAccounts = new Map()
-
-    for (const s of security) {
-        this.loginAttempts.set(s.username, s.login_attempts || 0)
-
-        if (s.locked_until && s.locked_until > Date.now()) {
-            this.lockedAccounts.set(s.username, {
-                lockedUntil: s.locked_until,
-                attempts: s.login_attempts
-            })
+        const upsert = async (table, data) => {
+            await supabase.from(table).upsert(data)
         }
-    }
 
-    // ===== config（只有一行） =====
-    this.config = config[0]?.data || {}
-
-    // ===== monitor =====
-    this.monitorLogs = monitor.sort((a, b) => b.timestamp - a.timestamp)
-
-    // ===== tokens =====
-    this.apiTokens = new Map(
-        tokens.map(t => [t.id, t])
-    )
-
-    console.log('[SUPABASE LOAD] done')
-}
-async saveToFile() {
-    const upsert = async (table, row) => {
-        try {
-            const { error } = await supabase
-                .from(table)
-                .upsert(row)
-
-            if (error) {
-                console.log(`[SAVE ERROR] ${table}:`, error.message)
-            }
-        } catch (e) {
-            console.log(`[SAVE EXCEPTION] ${table}:`, e.message)
-        }
-    }
-
-    try {
-        // ===== cookies（逐条写）=====
+        // ===== cookies =====
         await upsert('cookies',
-            Array.from(this.cookies.values())
+            Array.from(this.cookies.values()).map(c => ({
+                id: c.id,
+                platform: c.platform,
+                cookie: c.cookie,
+                note: c.note,
+                created_at: c.createdAt,
+                updated_at: c.updatedAt,
+                created_by: c.createdBy,
+                is_active: c.isActive,
+                is_valid: c.isValid,
+                validated_at: c.validatedAt,
+                user_info: c.userInfo,
+                validation_error: c.validationError
+            }))
         )
 
-        // ===== users =====
+        // ===== users（关键修复）=====
         await upsert('users',
-            Array.from(this.users.values())
+            Array.from(this.users.values()).map(u => ({
+                username: u.username,
+                password: u.password,
+                role: u.role,
+                created_at: u.createdAt,
+                last_login: u.lastLogin,
+                token: u.token,
+                two_factor_enabled: u.twoFactorEnabled,
+                two_factor_secret: u.twoFactorSecret
+            }))
         )
 
-        // ===== logs =====
-        await upsert('logs',
-            this.logs.slice(-1000)
-        )
+        // logs
+        await upsert('logs', this.logs)
 
-        // ===== security（需要拆 map）=====
-        const securityRows = []
-
-        for (const [username, attempts] of this.loginAttempts) {
-            const locked = this.lockedAccounts.get(username)
-
-            securityRows.push({
+        // security
+        await upsert('security',
+            Array.from(this.loginAttempts.entries()).map(([username, attempts]) => ({
                 username,
                 login_attempts: attempts,
-                locked_until: locked?.lockedUntil || null
-            })
-        }
+                locked_until: this.lockedAccounts.get(username)?.lockedUntil || null
+            }))
+        )
 
-        await upsert('security', securityRows)
-
-        // ===== config（单行 id=1）=====
+        // config
         await upsert('config', {
             id: 1,
             data: this.config
         })
 
-        // ===== monitor_logs =====
-        await upsert('monitor_logs',
-            this.monitorLogs.slice(-500)
-        )
+        // monitor
+        await upsert('monitor_logs', this.monitorLogs)
 
-        // ===== api_tokens =====
+        // tokens
         await upsert('api_tokens',
             Array.from(this.apiTokens.values())
         )
-
-        console.log('[SUPABASE SAVE] done')
-
-    } catch (e) {
-        console.log('[SAVE GLOBAL ERROR]', e.message)
     }
-}
- 
+    
     generateId() {
         return Date.now().toString(36) + Math.random().toString(36).substr(2, 9)
     }
@@ -412,8 +387,7 @@ async saveToFile() {
         
         this.cookies.set(id, cookie)
         await this.addLog('cookie_add', `添加${platform} Cookie: ${note || id}`, username)
-        
-        //await this.syncCookiesToBlob()
+         
         await this.saveToFile()
         
         return { success: true, data: cookie }
@@ -486,8 +460,7 @@ async saveToFile() {
         
         this.cookies.set(id, updatedCookie)
         await this.addLog('cookie_update', `更新${cookie.platform} Cookie: ${cookie.note || id}`, username)
-        await this.saveToFile()
-        //await this.syncCookiesToBlob()
+        await this.saveToFile() 
         
         return { success: true, data: updatedCookie }
     }
@@ -500,8 +473,7 @@ async saveToFile() {
 
         this.cookies.delete(id)
         await this.addLog('cookie_delete', `删除${cookie.platform} Cookie: ${cookie.note || id}`, username)
-        await this.saveToFile()
-        //await this.syncCookiesToBlob()
+        await this.saveToFile() 
         
         return { success: true }
     }
