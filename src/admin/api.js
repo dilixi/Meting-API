@@ -700,6 +700,65 @@ app.get('music', async (c) => {
     }
 }) 
 
+app.get('/admin/supabase-test', async (c) => {
+    try {
+        console.log('[SUPABASE TEST] start')
+
+        const supabase = (await import('@supabase/supabase-js')).createClient(
+            process.env.SUPABASE_URL,
+            process.env.SUPABASE_ANON_KEY
+        )
+
+        const testKey = 'cookies'
+
+        // ========== 1. 写入测试 ==========
+        const testData = {
+            time: Date.now(),
+            test: true,
+            message: 'hello supabase'
+        }
+
+        const { error: upsertError } = await supabase
+            .from('cookies')
+            .upsert({
+                id: testKey,
+                value: testData
+            })
+
+        if (upsertError) {
+            throw new Error('WRITE FAIL: ' + upsertError.message)
+        }
+
+        console.log('[SUPABASE TEST] write ok')
+
+        // ========== 2. 读取测试 ==========
+        const { data, error: selectError } = await supabase
+            .from('cookies')
+            .select('value')
+            .eq('id', testKey)
+            .single()
+
+        if (selectError) {
+            throw new Error('READ FAIL: ' + selectError.message)
+        }
+
+        console.log('[SUPABASE TEST] read ok')
+
+        return c.json({
+            ok: true,
+            write: testData,
+            read: data?.value || null
+        })
+
+    } catch (e) {
+        console.error('[SUPABASE TEST ERROR]', e)
+
+        return c.json({
+            ok: false,
+            error: e.message
+        }, 500)
+    }
+})
     
 }
 
