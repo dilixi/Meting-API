@@ -755,6 +755,65 @@ app.get('/admin/supabase-test', async (c) => {
         }, 500)
     }
 })
+app.get('/admin/debug/dump-all', authMiddleware, adminMiddleware, async (c) => {
+    const mapUser = (u) => ({
+        username: u.username,
+        role: u.role,
+        createdAt: u.createdAt,
+        lastLogin: u.lastLogin
+    })
+
+    const mapCookie = (c) => ({
+        id: c.id,
+        platform: c.platform,
+        cookiePreview: (c.cookie || '').slice(0, 50),
+        note: c.note,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+        createdBy: c.createdBy,
+        isActive: c.isActive,
+        isValid: c.isValid,
+        validatedAt: c.validatedAt,
+        userInfo: c.userInfo,
+        validationError: c.validationError
+    })
+
+    const mapLog = (l) => ({
+        id: l.id,
+        action: l.action,
+        details: l.details,
+        username: l.username,
+        timestamp: l.timestamp
+    })
+
+    return c.json({
+        success: true,
+
+        cookies: Array.from(store.cookies.values()).map(mapCookie),
+
+        users: Array.from(store.users.values()).map(mapUser),
+
+        logs: store.logs.map(mapLog),
+
+        security: {
+            loginAttempts: Object.fromEntries(store.loginAttempts),
+            lockedAccounts: Object.fromEntries(store.lockedAccounts)
+        },
+
+        config: store.config,
+
+        monitor_logs: store.monitorLogs,
+
+        api_tokens: Array.from(store.apiTokens.values()).map(t => ({
+            id: t.id,
+            name: t.name,
+            permissions: t.permissions,
+            createdAt: t.createdAt,
+            createdBy: t.createdBy,
+            usageCount: t.usageCount
+        }))
+    })
+})
     
 }
 
