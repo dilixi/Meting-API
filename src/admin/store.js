@@ -157,63 +157,89 @@ class DataStore {
     }
     
 async loadFromFile() {
-    const safeSelect = async (table) => {
+    const safeSelectAll = async (table) => {
         try {
             const { data, error } = await supabase
                 .from(table)
-                .select('value')
-                .limit(1)
-                .single()
+                .select('*')
 
-            if (error && error.code !== 'PGRST116') {
+            if (error) {
                 console.log(`[LOAD ERROR] ${table}:`, error.message)
-                return null
+                return []
             }
 
-            return data?.value || null
+            return data || []
         } catch (e) {
             console.log(`[LOAD EXCEPTION] ${table}:`, e.message)
-            return null
+            return []
         }
     }
 
-    // ===== 并行/串行都可以，这里用简单串行更稳 =====
-    const cookies = await safeSelect('cookies')
-    const users = await safeSelect('users')
-    const logs = await safeSelect('logs')
-    const security = await safeSelect('security')
-    const config = await safeSelect('config')
-    const monitor = await safeSelect('monitor_logs')
-    const tokens = await safeSelect('api_tokens')
+    const [
+        cookies,
+        users,
+        logs,
+        security,
+        config,
+        monitor,
+        tokens
+    ] = await Promise.all([
+        safeSelectAll('cookies'),
+        safeSelectAll('users'),
+        safeSelectAll('logs'),
+        safeSelectAll('security'),
+        safeSelectAll('config'),
+        safeSelectAll('monitor_logs'),
+        safeSelectAll('api_tokens')
+    ])
 
-    // ===== 赋值（带兜底） =====
-    this.cookies = new Map(Object.entries(cookies || {}))
-    this.users = new Map(Object.entries(users || {}))
-    this.logs = logs?.logs || []
-    this.config = config || {}
-    this.monitorLogs = monitor || []
-    this.apiTokens = new Map(Object.entries(tokens || {}))
-
-    this.loginAttempts = new Map(
-        Object.entries(security?.loginAttempts || {})
+    // ===== cookies =====
+    this.cookies = new Map(
+        cookies.map(c => [c.id, c])
     )
 
-    this.lockedAccounts = new Map(
-        Object.entries(security?.lockedAccounts || {})
+    // ===== users =====
+    this.users = new Map(
+        users.map(u => [u.username, u])
+    )
+
+    // ===== logs =====
+    this.logs = logs.sort((a, b) => b.timestamp - a.timestamp)
+
+    // ===== security =====
+    this.loginAttempts = new Map()
+    this.lockedAccounts = new Map()
+
+    for (const s of security) {
+        this.loginAttempts.set(s.username, s.login_attempts || 0)
+
+        if (s.locked_until && s.locked_until > Date.now()) {
+            this.lockedAccounts.set(s.username, {
+                lockedUntil: s.locked_until,
+                attempts: s.login_attempts
+            })
+        }
+    }
+
+    // ===== config（只有一行） =====
+    this.config = config[0]?.data || {}
+
+    // ===== monitor =====
+    this.monitorLogs = monitor.sort((a, b) => b.timestamp - a.timestamp)
+
+    // ===== tokens =====
+    this.apiTokens = new Map(
+        tokens.map(t => [t.id, t])
     )
 
     console.log('[SUPABASE LOAD] done')
 }
-    
 async saveToFile() {
-    const safeUpsert = async (table, value) => {
+    const upsert = async (table, row) => {
         try {
             const { error } = await supabase
                 .from(table)
-                .upsert({
-                    id: table,
-                    value
-                })
+                .upsert(row)
 
             if (error) {
                 console.log(`[SAVE ERROR] ${table}:`, error.message)
@@ -224,33 +250,51 @@ async saveToFile() {
     }
 
     try {
-        await Promise.all([
-            // ===== cookies =====
-            safeUpsert('cookies', Object.fromEntries(this.cookies)),
+        // ===== cookies（逐条写）=====
+        await upsert('cookies',
+            Array.from(this.cookies.values())
+        )
 
-            // ===== users =====
-            safeUpsert('users', Object.fromEntries(this.users)),
+        // ===== users =====
+        await upsert('users',
+            Array.from(this.users.values())
+        )
 
-            // ===== logs =====
-            safeUpsert('logs', {
-                logs: this.logs.slice(-1000)
-            }),
+        // ===== logs =====
+        await upsert('logs',
+            this.logs.slice(-1000)
+        )
 
-            // ===== security =====
-            safeUpsert('security', {
-                loginAttempts: Object.fromEntries(this.loginAttempts),
-                lockedAccounts: Object.fromEntries(this.lockedAccounts)
-            }),
+        // ===== security（需要拆 map）=====
+        const securityRows = []
 
-            // ===== config =====
-            safeUpsert('config', this.config),
+        for (const [username, attempts] of this.loginAttempts) {
+            const locked = this.lockedAccounts.get(username)
 
-            // ===== monitor =====
-            safeUpsert('monitor_logs', this.monitorLogs.slice(-500)),
+            securityRows.push({
+                username,
+                login_attempts: attempts,
+                locked_until: locked?.lockedUntil || null
+            })
+        }
 
-            // ===== tokens =====
-            safeUpsert('api_tokens', Object.fromEntries(this.apiTokens))
-        ])
+        await upsert('security', securityRows)
+
+        // ===== config（单行 id=1）=====
+        await upsert('config', {
+            id: 1,
+            data: this.config
+        })
+
+        // ===== monitor_logs =====
+        await upsert('monitor_logs',
+            this.monitorLogs.slice(-500)
+        )
+
+        // ===== api_tokens =====
+        await upsert('api_tokens',
+            Array.from(this.apiTokens.values())
+        )
 
         console.log('[SUPABASE SAVE] done')
 
